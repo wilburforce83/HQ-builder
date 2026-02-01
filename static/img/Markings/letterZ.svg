@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>HQ21</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="HQ21" fill="#670C2F" fill-rule="nonzero">
+            <g id="Z" transform="translate(3.905000, 2.438000)">
+                <path d="M8.274,9.772 L8.274,7.588 L8.134,7.588 C7.798,7.826 6.44,7.952 5.628,7.952 L3.598,7.952 C4.928,5.726 6.398,3.57 8.106,1.204 L8.106,0.224 L2.646,0.224 C1.834,0.224 0.658,0.21 0.364,-1.77635684e-15 L0.224,-1.77635684e-15 L0.224,2.184 L0.364,2.184 C0.686,1.946 2.086,1.82 2.884,1.82 L4.494,1.82 C3.164,4.004 1.736,6.23 -8.8817842e-16,8.554 L-8.8817842e-16,9.548 L5.88,9.548 C6.664,9.548 7.826,9.562 8.134,9.772 L8.274,9.772 Z" id="Path"></path>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,775 @@
+body
+{
+    overflow:hidden;
+}
+
+#table {
+    max-width: 1040px;
+    width:52vw;
+    display: grid;
+    grid-template-columns: repeat(26, 1fr);
+    grid-template-rows: repeat(19, 1fr);
+    grid-gap: 0px;
+    position: static;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    border: 1.5vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2.5vw stretch; /* /2vw allows to resize based on the size of the viewport width a*/
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#tablewm {
+    max-width: 40px;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    grid-gap: 0px;
+    position: static;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    border: 1.5vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2.5vw stretch; /* /2vw allows to resize based on the size of the viewport width a*/
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#canvas {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 1fr refers to the max-width divided by 3 (columns) and allows for dynamic resize */
+    grid-template-rows: repeat(25, 1fr);
+    grid-gap: 0px;
+    position: static;
+    z-index: 0;
+    border:1.5vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2.5vw stretch; /* /2vw allows to resize based on the size of the viewport width a*/
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+
+
+.cell {
+    aspect-ratio: 1/1;
+    box-shadow: inset 0 0 0 0.5px #A9A9A9;
+    /* inset box shadow to create a border effect. This won't add to the size of the box like a border would.*/
+    box-sizing: border-box;
+    position: relative;
+}
+
+.cell:hover
+{
+    cursor:pointer;
+}
+
+
+.corridor {
+    background-color:rgba(226, 221, 210,0.7);
+}
+
+.room {
+    background-color:rgba(232, 230, 228,0.7);
+
+}
+
+.td-selected {
+    background-color: blue
+}
+
+svg {
+    width: 105%;
+    height: 105%;
+    fill: black;
+    opacity: 0.5;
+    pointer-events: none;
+    position: absolute;
+    user-drag:none;
+    user-select:none;
+    object-fit: fill;
+    z-index:10;
+}
+
+.img-resize {
+    width: 100%;
+    height: 100%;
+    object-fit: scale-down;
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-drag:none;
+    user-select:none;
+    z-index:2;
+}
+
+.img-resize-tile {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-drag:none;
+    user-select:none;
+    z-index:1;
+}
+
+.img-noresize {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 2;
+    object-fit: cover;
+    overflow: visible;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    user-drag:none;
+    user-select:none;
+}
+
+
+.img-noresize-tile {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 1;
+    object-fit: cover;
+    overflow: visible;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    user-drag:none;
+    user-select:none;
+}
+
+.img-noresize-span-2x2 {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 1;
+    object-fit: cover;
+    overflow: visible;
+    top: 0;
+    left: 0;
+    width: 198%;
+    height: 198%;
+    user-drag:none;
+    user-select:none;
+}
+
+.img-noresize-span-1x2 {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 1;
+    overflow: visible;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    user-drag:none;
+    user-select:none;
+}
+
+.img-noresize-span-1x3 {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 1;
+    overflow: visible;
+    top: 0;
+    left: -100%;
+    width: 300%;
+    height: 100%;
+    user-drag:none;
+    user-select:none;
+}
+
+.img-noresize-span-2x3 {
+    background-color: transparent;
+    pointer-events: none; /* disable click events on the image and keep the div click event! (See below comment)*/
+    position: absolute;
+    z-index: 1;
+    overflow: visible;
+    top: 5%;
+    left: 10%;
+    width: 290%;
+    height: 200%;
+    user-drag:none;
+    user-select:none;
+}
+
+.border-left {
+    border-left: 1.5px solid #735344;
+}
+
+.border-right {
+    border-right: 1.5px solid #735344;
+}
+
+.border-top {
+    border-top: 1.5px solid #735344;
+}
+
+.border-bottom {
+    border-bottom: 1.5px solid #735344;
+}
+
+.rotate-0 {
+    transform: rotate(0deg);
+}
+
+.rotate-90 {
+    transform: rotate(90deg);
+}
+
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+.rotate-270 {
+    transform: rotate(270deg);
+}
+
+/*
+    Rotation works differently for Doors, as these needs to be translated to the border of the cell
+    To apply this specific class the selector points at the ID of the element (id="door")
+    similarly the selector can be also another class for the same element, the syntax is the following
+    #ID.CLASS
+    or
+    .CLASS1.CLASS2
+*/
+#door.rotate-0 {
+    transform: translate(0,-50%);
+    z-index:2;
+}
+
+#door.rotate-180 {
+    transform: translate(0,50%);
+    z-index:2;
+}
+
+#door.rotate-90 {
+    transform: translate(-50%,0) rotate(90deg);
+    z-index:2;
+}
+
+#door.rotate-270 {
+    transform: translate(50%,0) rotate(90deg);
+    z-index:2;
+}
+
+.img-noresize-span-1x2.rotate-90 {
+    transform: translate(-25%,50%) rotate(90deg);
+    z-index:2;
+}
+
+.img-noresize-span-1x2.rotate-180 {
+    transform: translate(-50%,0) rotate(180deg);
+    z-index:2;
+}
+
+.img-noresize-span-1x2.rotate-270 {
+    transform: translate(-25%,-50%) rotate(270deg);
+    z-index:2;
+}
+
+
+.img-noresize-span-2x3.rotate-90 {
+    transform: translate(-50%,25%) rotate(90deg);
+    z-index:2;
+}
+
+.img-noresize-span-2x3.rotate-180 {
+    transform: translate(-72%,-50%) rotate(180deg);
+    z-index:2;
+}
+
+.img-noresize-span-2x3.rotate-270 {
+    transform: translate(-15%,-75%) rotate(270deg);
+    z-index:2;
+}
+
+
+
+/*
+!!!! --> PREVENT IMAGES ON CELLS TO CAPTURE CLICK EVENT (BYPASS THE IMAGE)
+you
+Hi Duck, in Javascript I have a click event listener on a div that contains an img and when I apply the img
+I cannot trigger anymore the  click event listener on the div, how can I keep the image and still trigger
+the event click on the div?
+
+ddb
+It sounds like the image might be capturing the click event and preventing it from reaching the div.
+This is known as event capturing or event bubbling in JavaScript.
+
+One way to ensure the div's click event is triggered is to use the pointer-events CSS property on the image.
+If you set pointer-events: none; on the image, it will not be the target of pointer events, and the click will
+go 'through' the image to the div below.
+
+Remember to test this solution thoroughly, as it might have side effects depending on the rest of your code.
+*/
+
+
+/*
+!!!! --> ALLOW IMAGES TO EXTEND ON MULTIPLE CELLS AND ALLOW THEM TO BE RESIZABLE
+ you want the image to cover multiple cells but keep the grid structure intact. In this case, you might want to
+ consider using a different approach. Instead of trying to make the image span multiple cells, you could overlay
+ the image on top of the grid using absolute positioning.
+
+You would need to position the parent container of the image (the cell) relatively, and then position the image
+absolutely within that container. You can then use the top, left, width, and height properties to control the
+size and position of the image.
+
+First, you would need to set the position of the cell to relative. This allows you to position the image
+absolutely within the cell.
+
+.cell {
+    position: relative;
+
+}
+
+Next, you would set the position of the image to absolute and use the top, left, width, and height properties
+to control its size and position.
+
+.img-noresize {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 200%;
+
+
+}
+In this example, the image would cover twice the size of the cell. You would need to adjust the width and height
+properties depending on the size of the image and the number of cells you want it to cover.
+
+you could create additional classes for images that need to span multiple cells, similar to what we discussed earlier.
+For example, you could create a .img-span-2x2 class for images that need to span 2 rows and 2 columns:
+
+.img-span-2x2 {
+    width: 200%;
+    height: 200%;
+}
+Then, in your HTML, you would add this class to the images that need to span 2 rows and 2 columns:
+
+<img class="img-noresize img-span-2x2" src="...">
+This way, the image will cover twice the size of the cell, effectively spanning 2 rows and 2 columns.
+
+Remember to adjust the width and height properties depending on the number of cells you want the image to cover.
+*/
+
+.childWmText
+{
+    flex:50%;
+}
+
+.childWmIcon
+{
+    flex:20%;
+
+}
+.childWmSpacing
+{
+    flex:10%;
+
+}
+
+
+.containerwm
+{
+    display:flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.topnav {
+    width: 97%;
+    height: 5%;
+    padding-left: 1vw;
+    padding-right: 1vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 0.5vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 1vw stretch; /* /2vw allows to resize based on the size of the viewport width a*/
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+  }
+
+  .logo {
+    display: inline-block;
+
+
+  }
+
+  .nav-links {
+    list-style: none;
+    display: flex;
+  }
+
+  .nav-item a {
+    display: inline-block;
+    padding: 0px 1vw;
+    text-decoration: none;
+  }
+
+  .nav-item:hover {
+    background-color: #d9bda5/* #f6eee3*/;
+  }
+
+  .nav-item:hover a {
+    color: darkgreen;
+  }
+
+  .logo img {
+    width:15vw;
+    vertical-align: middle;
+  }
+
+.container
+{
+    display:flex;
+}
+
+.sidebar-left
+{
+    flex:10%;
+    order:1;
+    height: 89vh;
+    overflow-y:auto;
+    scrollbar-width:thin;
+    scrollbar-color:#d9bda5 #f6eee3;
+    transition: 2.2s linear;
+
+}
+.main-content
+{
+    flex:60%;
+    order:2;
+}
+
+/*
+"order" is crucial to execute the load map function in Javascript in function TableBoard,
+that otherwise it would not find the elements in this sidebar when populating the "notes" data
+the trick is done by placing the HTML and JS call at last in the "createmap.html" template
+but the CSS property ORDER allows for the visualization in correct order -> left -> main -> right (order:1 -> order:2 -> order:3)
+*/
+.sidebar-right
+{
+    flex:30%;
+    order:3;
+    height: 89vh;
+    overflow-y:auto;
+    scrollbar-width:thin;
+    scrollbar-color:#d9bda5 #f6eee3;
+    transition: 2.2s linear;
+}
+
+
+.notes {
+    display:block; /*The margins won't affect the textarea because it is not a block level element, but you can make it display block if you like:*/
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    padding: 1vw 1vw;
+    margin: 8px 0;
+    box-sizing: border-box;
+    width: 100%;  /* 50% of the parent's width */
+    height: 25%; /* 50% of the parent's height */
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    border: 1vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2vw stretch;
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    resize:none;
+  }
+
+.message
+{
+  display:block; /*The margins won't affect the textarea because it is not a block level element, but you can make it display block if you like:*/
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  padding: 1vw 1vw;
+  margin: 8px 0;
+  box-sizing: border-box;
+  width: 50%;  /* 50% of the parent's width */
+  height: 50%; /* 50% of the parent's height */
+  margin-left: auto; /* This to center the element in the div */
+  margin-right: auto; /* This to center the element in the div */
+  border: 1vw solid black;
+  border-image: url('/static/img/decorations/border.png') 40 / 2vw stretch;
+  background-image: url('/static/img/decorations/background.png');
+  background-repeat: no-repeat;
+  background-size:100% 100%;
+  font-family: Papyrus, fantasy;
+  font-size: 2vw;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: 700;
+  resize:none;
+  text-align:center;
+}
+
+  .notes-singleLine {
+    display:block; /*The margins won't affect the textarea because it is not a block level element, but you can make it display block if you like:*/
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    padding: 1vw 1vw;
+    margin: 8px 0;
+    box-sizing: border-box;
+    width: 100%;  /* 50% of the parent's width */
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    border: 1vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2vw stretch;
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    resize:none;
+  }
+
+  .notes-singleLine-fit {
+    display:block; /*The margins won't affect the textarea because it is not a block level element, but you can make it display block if you like:*/
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    padding: 1vw 1vw;
+    margin: 8px 0;
+    box-sizing: border-box;
+    width: auto;  /* 50% of the parent's width */
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    border: 1vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2vw stretch;
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    resize:none;
+  }
+
+td ,th
+{
+    padding: 1vw 1vw;
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    resize:none;
+}
+
+#tablediv
+{
+    width:50%;
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1vw solid black;
+    border-image: url('/static/img/decorations/border.png') 40 / 2vw stretch;
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+}
+
+table
+{
+    align-self:center;
+    border-collapse: collapse;
+}
+
+
+  .notes-singleLine:focus, .notes:focus, .notes-singleLine-fit:focus
+  {
+    outline:none; /* This will remove the outline when the textarea is focused */
+  }
+
+  .buttonhq
+  {
+    padding: 15px 32px;
+    text-align: center;
+    display: block;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    /*border: 1vw solid white;
+    border-image: url('/static/img/decorations/border.png') 40 / 1vw stretch;*/
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+
+  }
+
+  .buttonhq:active {
+    transform: translateY(4px);
+  }
+
+  .inputhq {
+    display:block; /*The margins won't affect the textarea because it is not a block level element, but you can make it display block if you like:*/
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    padding: 1vw 1vw;
+    margin: 8px 0;
+    box-sizing: border-box;
+    width: auto;  /* 50% of the parent's width */
+    margin-left: auto; /* This to center the element in the div */
+    margin-right: auto; /* This to center the element in the div */
+    background-image: url('/static/img/decorations/background.png');
+    background-repeat: no-repeat;
+    background-size:100% 100%;
+    font-family: Papyrus, fantasy;
+    font-size: 1vw;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 700;
+    resize:none;
+  }
+
+
+  @media print
+  {
+    html, body {
+        height: 90%;
+    }
+    @page
+    {
+        margin: 0.5cm;
+        size: A4 portrait;
+    }
+
+
+    #table,#title,#author,#story,#notes,#wandering
+    {
+        page-break-inside:avoid;
+    }
+
+    #title,#author,#wandering
+    {
+        width:auto;
+    }
+
+    .sidebar-left, .topnav
+    {
+        display:none;
+    }
+
+
+    .container
+    {
+        flex-flow:column;
+
+    }
+
+    .main-content
+    {
+        flex-flow:column;
+    }
+
+    .sidebar-right
+    {
+        flex-flow:column;
+        overflow:hidden;
+
+    }
+
+
+    #table
+    {
+        width:95%;
+        height:40%;
+    }
+
+    #story
+    {
+        height:15vh;
+    }
+
+    #notes
+    {
+        height:15vh;
+        /*height:38%;*/
+    }
+
+    .childWmText
+    {
+        flex:15%;
+    }
+
+    .childWmIcon
+    {
+        flex:15%;
+
+    }
+    .childWmSpacing
+    {
+        flex:35%;
+
+    }
+
+    #title
+    {
+        font-size:2vw;
+    }
+    #author
+    {
+        font-size:1vw;
+    }
+    .notes
+    {
+        font-size:1.5vw;
+    }
+    #wandering
+    {
+        font-size:1.5vw;
+    }
+
+  }

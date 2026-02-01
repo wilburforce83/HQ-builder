@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, width=device-width">
+    <link href="/static/favicon.svg" rel="icon">
+    <link href="/static/main.css" rel="stylesheet">
+    <script type="text/javascript" src="/static/library.js"></script>
+
+    {% block script %}{% endblock %}
+
+    <title>CS50 HQ Builder: {% block title %}{% endblock %}</title>
+
+</head>
+<body>
+    {% include 'includes/topnav.html' %}
+    {% block body %}{% endblock %}
+</body>
+
+</html>

@@ -1,0 +1,8 @@
+<div class="table" id="table">
+    <script type="text/javascript">
+        var BoardData = {{ BoardDataInput | tojson | safe }};
+        var MapData = {{ MapDataInput | tojson | safe }};
+        document.addEventListener('DOMContentLoaded', TableBoard(BoardData,MapData));
+    </script>
+</div>
+

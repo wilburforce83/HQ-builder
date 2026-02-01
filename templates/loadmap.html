@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Load Map
+{% endblock %}
+
+{% block body %}
+<div id="tablediv">
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Author</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for map in maplist %}
+            <tr>
+                <th scope="row">{{map.title}}</th>
+                <td>{{map.author}}</td>
+                <form action="/" method="post">
+                    <input type="hidden" name="id" value="{{map.id}}">
+                    <td><button class="buttonhq" type="submit">Load</button></td>
+                </form>
+                <form action="/delete" method="post">
+                    <input type="hidden" name="id" value="{{map.id}}">
+                    <td><button class="buttonhq" type="submit">Delete</button></td>
+                </form>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+<input type="text" placeholder="Title of the Quest" spellcheck="false" class="notes-singleLine" name="title" id="title">
+<input type="text" placeholder="Author" spellcheck="false" class="notes-singleLine" name="author" id="author">
+<textarea placeholder="Narrative/Story goes here" spellcheck="false" class="notes" name="story" id="story"></textarea>
+<textarea placeholder="Notes" spellcheck="false" class="notes" name="notes" id="notes"></textarea>
+<div class="containerwm">
+    <div class="childWmSpacing"></div>
+    <div class="childWmText">
+        <input type="text" placeholder="Wandering monster" spellcheck="false" class="notes-singleLine-fit" name="wandering" id="wandering" value="Wandering Monster: " disabled>
+    </div>
+    <div class="childWmIcon">
+        <div class="table" id="tablewm">
+            <div class="cell corridor" id="WM" onclick="select2('WM')">
+                <div id="layer1"></div>
+                <div id="layer2"></div>
+                <div id="layer3"></div>
+            </div>
+        </div>
+    </div>
+    <div class="childWmSpacing"></div>
+</div>

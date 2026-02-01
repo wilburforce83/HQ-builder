@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="11.114"
+   height="5.5560002"
+   viewBox="0 0 11.114 5.5560002"
+   version="1.1"
+   xml:space="preserve"
+   style="clip-rule:evenodd;fill-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2"
+   id="svg8"
+   sodipodi:docname="arrow_n.svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+   id="defs12" /><sodipodi:namedview
+   id="namedview10"
+   pagecolor="#ffffff"
+   bordercolor="#666666"
+   borderopacity="1.0"
+   inkscape:pageshadow="2"
+   inkscape:pageopacity="0.0"
+   inkscape:pagecheckerboard="0"
+   showgrid="false"
+   inkscape:zoom="88.166667"
+   inkscape:cx="5.9943289"
+   inkscape:cy="2.9943289"
+   inkscape:window-width="1920"
+   inkscape:window-height="1012"
+   inkscape:window-x="-8"
+   inkscape:window-y="-8"
+   inkscape:window-maximized="1"
+   inkscape:current-layer="svg8" />
+    <g
+   transform="rotate(180,133.627,557.825)"
+   id="g6">
+        <g
+   transform="matrix(2,0,0,2,267.254,1115.65)"
+   id="g4">
+            <path
+   d="M 0,-2.778 -2.778,0 -5.557,-2.778 Z"
+   style="fill:#811236;fill-rule:nonzero"
+   id="path2" />
+        </g>
+    </g>
+</svg>
