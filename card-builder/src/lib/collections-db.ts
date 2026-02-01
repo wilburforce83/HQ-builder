@@ -2,135 +2,95 @@
 
 import type { CollectionRecord } from "@/types/collections-db";
 
-import { openHqccDb } from "./hqcc-db";
 import { generateId } from ".";
 
-import type { HqccDb } from "./hqcc-db";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
-async function getCollectionsStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-  const db: HqccDb = await openHqccDb();
+async function fetchJson(path: string, options?: RequestInit): Promise<unknown> {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    ...options,
+  });
 
-  if (!db.objectStoreNames.contains("collections")) {
-    throw new Error("Collections store not available");
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
   }
 
-  const tx = db.transaction("collections", mode);
-  return tx.objectStore("collections");
+  if (response.status === 204) return null;
+  return response.json();
 }
 
 export async function createCollection(input: {
+  id?: string;
   name: string;
   description?: string;
   cardIds?: string[];
+  createdAt?: number;
+  updatedAt?: number;
+  schemaVersion?: number;
 }): Promise<CollectionRecord> {
   const now = Date.now();
   const record: CollectionRecord = {
-    id: generateId(),
+    id: input.id ?? generateId(),
     name: input.name,
     description: input.description,
     cardIds: input.cardIds ?? [],
-    createdAt: now,
-    updatedAt: now,
-    schemaVersion: 1,
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+    schemaVersion: input.schemaVersion ?? 1,
   };
 
-  const store = await getCollectionsStore("readwrite");
+  const data = (await fetchJson(`${API_BASE}/collections`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(record),
+  })) as CollectionRecord;
 
-  await new Promise<void>((resolve, reject) => {
-    const request = store.add(record);
-    request.onsuccess = () => resolve();
-    request.onerror = () =>
-      reject(request.error ?? new Error("Failed to create collection"));
-  });
-
-  return record;
+  return data;
 }
 
 export async function updateCollection(
   id: string,
-  patch: Partial<Omit<CollectionRecord, "id" | "createdAt" | "schemaVersion">>,
+  patch: Partial<Omit<CollectionRecord, "id" | "createdAt" | "schemaVersion">> & {
+    schemaVersion?: number;
+  },
 ): Promise<CollectionRecord | null> {
-  const store = await getCollectionsStore("readwrite");
-
-  const existing = await new Promise<CollectionRecord | null>((resolve, reject) => {
-    const getRequest = store.get(id);
-    getRequest.onsuccess = () => {
-      resolve((getRequest.result as CollectionRecord | undefined) ?? null);
-    };
-    getRequest.onerror = () => {
-      reject(getRequest.error ?? new Error("Failed to load collection for update"));
-    };
+  const response = await fetch(`${API_BASE}/collections/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(patch),
   });
 
-  if (!existing) {
+  if (response.status === 404) {
     return null;
   }
 
-  const now = Date.now();
-  const next: CollectionRecord = {
-    ...existing,
-    ...patch,
-    updatedAt: now,
-  };
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
+  }
 
-  await new Promise<void>((resolve, reject) => {
-    const putRequest = store.put(next);
-    putRequest.onsuccess = () => resolve();
-    putRequest.onerror = () =>
-      reject(putRequest.error ?? new Error("Failed to update collection"));
-  });
-
-  return next;
+  return (await response.json()) as CollectionRecord;
 }
 
 export async function getCollection(id: string): Promise<CollectionRecord | null> {
-  const store = await getCollectionsStore("readonly");
-
-  return new Promise<CollectionRecord | null>((resolve, reject) => {
-    const request = store.get(id);
-    request.onsuccess = () => {
-      resolve((request.result as CollectionRecord | undefined) ?? null);
-    };
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to load collection"));
-    };
-  });
+  const collections = await listCollections();
+  return collections.find((collection) => collection.id === id) ?? null;
 }
 
 export async function listCollections(): Promise<CollectionRecord[]> {
-  const store = await getCollectionsStore("readonly");
-  const collections: CollectionRecord[] = [];
-
-  await new Promise<void>((resolve, reject) => {
-    const request = store.openCursor();
-
-    request.onsuccess = () => {
-      const cursor = request.result as IDBCursorWithValue | null;
-      if (!cursor) {
-        resolve();
-        return;
-      }
-      collections.push(cursor.value as CollectionRecord);
-      cursor.continue();
-    };
-
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to list collections"));
-    };
-  });
-
-  return collections.sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-  );
+  const data = (await fetchJson(`${API_BASE}/collections`)) as CollectionRecord[];
+  return data ?? [];
 }
 
 export async function deleteCollection(id: string): Promise<void> {
-  const store = await getCollectionsStore("readwrite");
-
-  await new Promise<void>((resolve, reject) => {
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () =>
-      reject(request.error ?? new Error("Failed to delete collection"));
+  await fetchJson(`${API_BASE}/collections/${id}`, {
+    method: "DELETE",
   });
 }

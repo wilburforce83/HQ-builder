@@ -4,8 +4,9 @@ import type { CardRecord } from "@/types/cards-db";
 
 import type { AssetRecord } from "./assets-db";
 import JSZip from "jszip";
-import { openHqccDb } from "./hqcc-db";
-import type { HqccDb } from "./hqcc-db";
+import { listCards, createCard, deleteCards } from "./cards-db";
+import { getAllAssets, getAllAssetsWithBlobs, addAsset, deleteAssets } from "./assets-db";
+import { listCollections, createCollection, deleteCollection } from "./collections-db";
 
 export const BACKUP_SCHEMA_VERSION = 1 as const;
 export const BACKUP_FILE_EXTENSION = ".hqcc.json" as const;
@@ -170,36 +171,9 @@ async function buildExportObject(
     throw new Error("Backup export is only available in the browser");
   }
 
-  const db: HqccDb = await openHqccDb();
-
-  const cardsTx = db.transaction("cards", "readonly");
-  const cardsStore = cardsTx.objectStore("cards");
-
-  const rawCards: CardRecord[] = await new Promise<CardRecord[]>((resolve, reject) => {
-    const request = cardsStore.getAll();
-    request.onsuccess = () => {
-      const results = (request.result as CardRecord[]) ?? [];
-      resolve(results);
-    };
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to read cards for backup"));
-    };
-  });
-
-  const assetsTx = db.transaction("assets", "readonly");
-  const assetsStore = assetsTx.objectStore("assets");
-  const rawAssets: (AssetRecord & { blob?: Blob })[] = await new Promise<
-    (AssetRecord & { blob?: Blob })[]
-  >((resolve, reject) => {
-    const request = assetsStore.getAll();
-    request.onsuccess = () => {
-      const results = (request.result as (AssetRecord & { blob?: Blob })[]) ?? [];
-      resolve(results);
-    };
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to read assets for backup"));
-    };
-  });
+  const rawCards = await listCards();
+  const rawAssets = await getAllAssetsWithBlobs();
+  const rawCollections = await listCollections();
 
   const cards: CardRecordExportV1[] = [];
   const totalProgressCount = rawCards.length + rawAssets.length;
@@ -251,27 +225,15 @@ async function buildExportObject(
     onProgress?.(totalProgressCount, totalProgressCount, "export");
   }
 
-  const collections: CollectionRecordExportV1[] = [];
-
-  if (db.objectStoreNames.contains("collections")) {
-    const collectionsTx = db.transaction("collections", "readonly");
-    const collectionsStore = collectionsTx.objectStore("collections");
-
-    const rawCollections: CollectionRecordExportV1[] = await new Promise<
-      CollectionRecordExportV1[]
-    >((resolve, reject) => {
-      const request = collectionsStore.getAll();
-      request.onsuccess = () => {
-        const results = (request.result as CollectionRecordExportV1[]) ?? [];
-        resolve(results);
-      };
-      request.onerror = () => {
-        reject(request.error ?? new Error("Failed to read collections for backup"));
-      };
-    });
-
-    collections.push(...rawCollections);
-  }
+  const collections: CollectionRecordExportV1[] = rawCollections.map((collection) => ({
+    id: collection.id,
+    name: collection.name,
+    nameLower: collection.name.toLocaleLowerCase(),
+    createdAt: collection.createdAt,
+    updatedAt: collection.updatedAt,
+    schemaVersion: 1,
+    cardIds: collection.cardIds,
+  }));
 
   let cardDraftsV1: string | null | undefined;
   let activeCardsV1: string | null | undefined;
@@ -333,31 +295,19 @@ async function applyBackupObject(
     throw new Error("Backup import is only available in the browser");
   }
 
-  const db: HqccDb = await openHqccDb();
-
-  const hasCardsStore = db.objectStoreNames.contains("cards");
-  const hasAssetsStore = db.objectStoreNames.contains("assets");
-  const hasCollectionsStore = db.objectStoreNames.contains("collections");
-
-  async function clearStore(name: string): Promise<void> {
-    if (!db.objectStoreNames.contains(name)) return;
-    return new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(name, "readwrite");
-      const store = tx.objectStore(name);
-      store.clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error(`Failed to clear ${name} store`));
-    });
+  const existingCards = await listCards();
+  if (existingCards.length) {
+    await deleteCards(existingCards.map((card) => card.id));
   }
 
-  if (hasCardsStore) {
-    await clearStore("cards");
+  const existingAssets = await getAllAssets();
+  if (existingAssets.length) {
+    await deleteAssets(existingAssets.map((asset) => asset.id));
   }
-  if (hasAssetsStore) {
-    await clearStore("assets");
-  }
-  if (hasCollectionsStore) {
-    await clearStore("collections");
+
+  const existingCollections = await listCollections();
+  for (const collection of existingCollections) {
+    await deleteCollection(collection.id);
   }
 
   let cardsCount = 0;
@@ -368,99 +318,58 @@ async function applyBackupObject(
     exportData.cards.length +
     (Array.isArray(exportData.collections) ? exportData.collections.length : 0);
 
-  if (hasAssetsStore && exportData.assets.length > 0) {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction("assets", "readwrite");
-      const store = tx.objectStore("assets");
-
+  if (exportData.assets.length > 0) {
+    for (const assetExport of exportData.assets) {
       try {
-        exportData.assets.forEach((assetExport) => {
-          try {
-            const blob = dataUrlToBlob(assetExport.dataUrl);
-            const record: AssetRecord & { blob: Blob } = {
-              id: assetExport.id,
-              name: assetExport.name,
-              mimeType: assetExport.mimeType,
-              width: assetExport.width,
-              height: assetExport.height,
-              createdAt: assetExport.createdAt,
-              blob,
-            };
-            store.put(record);
-            assetsCount += 1;
-            onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
-          } catch {
-            // Skip invalid asset entries
-          }
+        const blob = dataUrlToBlob(assetExport.dataUrl);
+        await addAsset(assetExport.id, blob, {
+          name: assetExport.name,
+          mimeType: assetExport.mimeType,
+          width: assetExport.width,
+          height: assetExport.height,
         });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error("Failed to import assets"));
-        return;
+        assetsCount += 1;
+        onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
+      } catch {
+        // Skip invalid asset entries
       }
-
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject(tx.error ?? new Error("Failed to write assets during backup import"));
-    });
+    }
   }
 
-  if (hasCardsStore && exportData.cards.length > 0) {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction("cards", "readwrite");
-      const store = tx.objectStore("cards");
-
-      try {
-        exportData.cards.forEach((cardExport) => {
-          let thumbnailBlob: Blob | null = null;
-          if (cardExport.thumbnailDataUrl) {
-            try {
-              thumbnailBlob = dataUrlToBlob(cardExport.thumbnailDataUrl);
-            } catch {
-              thumbnailBlob = null;
-            }
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { thumbnailDataUrl, ...rest } = cardExport;
-          const record: CardRecord = {
-            ...(rest as CardRecord),
-            thumbnailBlob,
-          };
-          store.put(record);
-          cardsCount += 1;
-          onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
-        });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error("Failed to import cards"));
-        return;
+  if (exportData.cards.length > 0) {
+    for (const cardExport of exportData.cards) {
+      let thumbnailBlob: Blob | null = null;
+      if (cardExport.thumbnailDataUrl) {
+        try {
+          thumbnailBlob = dataUrlToBlob(cardExport.thumbnailDataUrl);
+        } catch {
+          thumbnailBlob = null;
+        }
       }
 
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject(tx.error ?? new Error("Failed to write cards during backup import"));
-    });
+      const { thumbnailDataUrl, ...rest } = cardExport;
+      await createCard({
+        ...(rest as CardRecord),
+        thumbnailBlob,
+      });
+      cardsCount += 1;
+      onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
+    }
   }
 
-  if (hasCollectionsStore && Array.isArray(exportData.collections) && exportData.collections.length) {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction("collections", "readwrite");
-      const store = tx.objectStore("collections");
-
-      try {
-        exportData.collections?.forEach((collection) => {
-          store.put(collection);
-          collectionsCount += 1;
-          onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
-        });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error("Failed to import collections"));
-        return;
-      }
-
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject(tx.error ?? new Error("Failed to write collections during backup import"));
-    });
+  if (Array.isArray(exportData.collections) && exportData.collections.length) {
+    for (const collection of exportData.collections) {
+      await createCollection({
+        id: collection.id,
+        name: collection.name,
+        cardIds: collection.cardIds ?? [],
+        createdAt: collection.createdAt,
+        updatedAt: collection.updatedAt,
+        schemaVersion: collection.schemaVersion,
+      });
+      collectionsCount += 1;
+      onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");
+    }
   }
 
   try {
@@ -500,11 +409,8 @@ export async function createBackupJson(
 
   const now = new Date();
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-  const timestamp = [
-    now.getFullYear(),
-    pad(now.getMonth() + 1),
-    pad(now.getDate()),
-  ].join("") +
+  const timestamp =
+    [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join("") +
     "-" +
     [pad(now.getHours()), pad(now.getMinutes()), pad(now.getSeconds())].join("");
 
@@ -570,11 +476,8 @@ export async function createBackupHqcc(
 
   const now = new Date();
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-  const timestamp = [
-    now.getFullYear(),
-    pad(now.getMonth() + 1),
-    pad(now.getDate()),
-  ].join("") +
+  const timestamp =
+    [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join("") +
     "-" +
     [pad(now.getHours()), pad(now.getMinutes()), pad(now.getSeconds())].join("");
 

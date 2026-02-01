@@ -1,7 +1,5 @@
 "use client";
 
-import { openHqccDb } from "./hqcc-db";
-
 export type AssetRecord = {
   id: string;
   name: string;
@@ -15,186 +13,90 @@ export type AssetRecordWithBlob = AssetRecord & {
   blob: Blob;
 };
 
-const STORE_NAME = "assets";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
+
+async function fetchJson(path: string, options?: RequestInit): Promise<unknown> {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    ...options,
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
 
 export async function addAsset(
   id: string,
   blob: Blob,
   meta: Omit<AssetRecord, "id" | "createdAt">,
 ): Promise<void> {
-  const db = await openHqccDb();
+  const form = new FormData();
+  form.append("file", blob, meta.name);
+  form.append("id", id);
+  form.append("name", meta.name);
+  form.append("mimeType", meta.mimeType);
+  form.append("width", String(meta.width));
+  form.append("height", String(meta.height));
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const record: AssetRecord & { blob: Blob } = {
-      id,
-      createdAt: Date.now(),
-      ...meta,
-      blob,
-    };
-
-    const req = store.put(record);
-
-    req.onsuccess = () => {
-      // noop
-    };
-
-    tx.oncomplete = () => {
-      // eslint-disable-next-line no-console
-      console.debug("[assets-db] addAsset complete", id);
-      resolve();
-    };
-    tx.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] addAsset tx error", tx.error);
-      reject(tx.error ?? new Error("Failed to add asset"));
-    };
+  await fetchJson(`${API_BASE}/assets`, {
+    method: "POST",
+    body: form,
   });
 }
 
 export async function getAllAssets(): Promise<AssetRecord[]> {
-  const db = await openHqccDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    let request: IDBRequest;
-
-    if (store.indexNames.contains("createdAt")) {
-      const index = store.index("createdAt");
-      request = index.getAll();
-    } else {
-      request = store.getAll();
-    }
-
-    request.onsuccess = () => {
-      const results = (request.result as AssetRecord[]) ?? [];
-      // eslint-disable-next-line no-console
-      console.debug("[assets-db] getAllAssets success", results.length);
-      resolve(
-        results.map((record) => ({
-          ...record,
-        })),
-      );
-    };
-
-    request.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] getAllAssets error", request.error);
-      reject(request.error ?? new Error("Failed to load assets"));
-    };
-  });
+  const data = (await fetchJson(`${API_BASE}/assets`)) as AssetRecord[];
+  return data ?? [];
 }
 
 export async function getAllAssetsWithBlobs(): Promise<AssetRecordWithBlob[]> {
-  const db = await openHqccDb();
+  const records = await getAllAssets();
+  const results: AssetRecordWithBlob[] = [];
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    let request: IDBRequest;
+  for (const record of records) {
+    const blob = await getAssetBlob(record.id);
+    if (!blob) continue;
+    results.push({ ...record, blob });
+  }
 
-    if (store.indexNames.contains("createdAt")) {
-      const index = store.index("createdAt");
-      request = index.getAll();
-    } else {
-      request = store.getAll();
-    }
-
-    request.onsuccess = () => {
-      const results = (request.result as AssetRecordWithBlob[]) ?? [];
-      // eslint-disable-next-line no-console
-      console.debug("[assets-db] getAllAssetsWithBlobs success", results.length);
-      resolve(
-        results.map((record) => ({
-          ...record,
-        })),
-      );
-    };
-
-    request.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] getAllAssetsWithBlobs error", request.error);
-      reject(request.error ?? new Error("Failed to load asset blobs"));
-    };
-  });
+  return results;
 }
 
 export async function getAssetObjectUrl(id: string): Promise<string | null> {
-  const db = await openHqccDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.get(id);
-
-    request.onsuccess = () => {
-      const record = request.result as (AssetRecord & { blob?: Blob }) | undefined;
-      if (!record || !record.blob) {
-        resolve(null);
-        return;
-      }
-      const url = URL.createObjectURL(record.blob);
-      resolve(url);
-    };
-
-    request.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] getAssetObjectUrl error", request.error);
-      reject(request.error ?? new Error("Failed to load asset blob"));
-    };
-  });
+  const blob = await getAssetBlob(id);
+  if (!blob) return null;
+  return URL.createObjectURL(blob);
 }
 
 export async function getAssetBlob(id: string): Promise<Blob | null> {
-  const db = await openHqccDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.get(id);
-
-    request.onsuccess = () => {
-      const record = request.result as (AssetRecord & { blob?: Blob }) | undefined;
-      if (!record || !record.blob) {
-        resolve(null);
-        return;
-      }
-      resolve(record.blob);
-    };
-
-    request.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] getAssetBlob error", request.error);
-      reject(request.error ?? new Error("Failed to load asset blob"));
-    };
+  const response = await fetch(`${API_BASE}/assets/${id}/blob`, {
+    credentials: "same-origin",
   });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+
+  return response.blob();
 }
 
 export async function deleteAssets(ids: string[]): Promise<void> {
   if (!ids.length) return;
-
-  const db = await openHqccDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-
-    ids.forEach((id) => {
-      store.delete(id);
-    });
-
-    tx.oncomplete = () => {
-      // eslint-disable-next-line no-console
-      console.debug("[assets-db] deleteAssets complete", ids.length);
-      resolve();
-    };
-
-    tx.onerror = () => {
-      // eslint-disable-next-line no-console
-      console.error("[assets-db] deleteAssets tx error", tx.error);
-      reject(tx.error ?? new Error("Failed to delete assets"));
-    };
+  await fetchJson(`${API_BASE}/assets`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ids }),
   });
 }

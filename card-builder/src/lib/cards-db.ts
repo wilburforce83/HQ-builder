@@ -3,95 +3,185 @@
 import type { CardRecord, CardStatus } from "@/types/cards-db";
 import type { TemplateId } from "@/types/templates";
 
-import { openHqccDb } from "./hqcc-db";
-
 import { generateId } from ".";
 
-import type { HqccDb } from "./hqcc-db";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
-async function getCardsStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-  const db: HqccDb = await openHqccDb();
-  const tx = db.transaction("cards", mode);
-  return tx.objectStore("cards");
+type CardApiRecord = Omit<CardRecord, "thumbnailBlob"> & {
+  thumbnailDataUrl?: string | null;
+};
+
+export type CardCreateInput = Omit<
+  CardRecord,
+  "id" | "createdAt" | "updatedAt" | "nameLower" | "schemaVersion"
+> & {
+  id?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  nameLower?: string;
+  schemaVersion?: number;
+  thumbnailBlob?: Blob | null;
+};
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read blob"));
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
 }
 
-export async function createCard(
-  input: Omit<CardRecord, "id" | "createdAt" | "updatedAt" | "nameLower" | "schemaVersion">,
-): Promise<CardRecord> {
-  const now = Date.now();
-  const id = generateId();
-  const base: CardRecord = {
-    ...input,
-    id,
-    createdAt: now,
-    updatedAt: now,
-    nameLower: input.name.toLocaleLowerCase(),
-    schemaVersion: 1,
-  };
+function dataUrlToBlob(dataUrl: string): Blob {
+  if (!dataUrl.startsWith("data:")) {
+    throw new Error("Invalid data URL: missing data: prefix");
+  }
 
-  const store = await getCardsStore("readwrite");
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) {
+    throw new Error("Invalid data URL: missing comma separator");
+  }
 
-  await new Promise<void>((resolve, reject) => {
-    const request = store.add(base);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error("Failed to create card"));
+  const meta = dataUrl.slice(5, commaIndex);
+  const payload = dataUrl.slice(commaIndex + 1);
+
+  const parts = meta.split(";");
+  const mimeType = parts[0] || "application/octet-stream";
+  const isBase64 = parts.includes("base64");
+
+  let binaryString: string;
+  try {
+    if (isBase64) {
+      binaryString = atob(payload);
+    } else {
+      binaryString = decodeURIComponent(payload);
+    }
+  } catch {
+    throw new Error("Invalid data URL: failed to decode payload");
+  }
+
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function serializeCardPayload(
+  record: Partial<CardRecord> & { thumbnailBlob?: Blob | null },
+): Promise<Partial<CardApiRecord>> {
+  const { thumbnailBlob, ...rest } = record;
+  const payload: Partial<CardApiRecord> = { ...rest } as Partial<CardApiRecord>;
+
+  if (thumbnailBlob instanceof Blob) {
+    payload.thumbnailDataUrl = await blobToDataUrl(thumbnailBlob);
+  } else if (thumbnailBlob === null) {
+    payload.thumbnailDataUrl = null;
+  }
+
+  return payload;
+}
+
+function normalizeCard(raw: CardApiRecord): CardRecord {
+  const { thumbnailDataUrl, ...rest } = raw;
+  const thumbnailBlob = thumbnailDataUrl ? dataUrlToBlob(thumbnailDataUrl) : null;
+  return {
+    ...rest,
+    thumbnailBlob,
+  } as CardRecord;
+}
+
+async function fetchJson(path: string, options?: RequestInit): Promise<unknown> {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    ...options,
   });
 
-  return base;
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+export async function createCard(input: CardCreateInput): Promise<CardRecord> {
+  const now = Date.now();
+  const id = input.id ?? generateId();
+  const createdAt = input.createdAt ?? now;
+  const updatedAt = input.updatedAt ?? now;
+  const nameLower = input.nameLower ?? input.name.toLocaleLowerCase();
+  const schemaVersion = input.schemaVersion ?? 1;
+
+  const payload = await serializeCardPayload({
+    ...input,
+    id,
+    createdAt,
+    updatedAt,
+    nameLower,
+    schemaVersion,
+  });
+
+  const data = (await fetchJson(`${API_BASE}/cards`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })) as CardApiRecord;
+
+  return normalizeCard(data);
 }
 
 export async function updateCard(
   id: string,
-  patch: Partial<Omit<CardRecord, "id" | "createdAt" | "schemaVersion">>,
+  patch: Partial<Omit<CardRecord, "id" | "createdAt" | "schemaVersion">> & {
+    thumbnailBlob?: Blob | null;
+  },
 ): Promise<CardRecord | null> {
-  const store = await getCardsStore("readwrite");
+  const payload = await serializeCardPayload(patch);
 
-  const existing = await new Promise<CardRecord | null>((resolve, reject) => {
-    const getRequest = store.get(id);
-    getRequest.onsuccess = () => {
-      resolve((getRequest.result as CardRecord | undefined) ?? null);
-    };
-    getRequest.onerror = () => {
-      reject(getRequest.error ?? new Error("Failed to load card for update"));
-    };
+  const response = await fetch(`${API_BASE}/cards/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
   });
 
-  if (!existing) {
+  if (response.status === 404) {
     return null;
   }
 
-  const now = Date.now();
-  const next: CardRecord = {
-    ...existing,
-    ...patch,
-    updatedAt: now,
-  };
-
-  if (patch.name) {
-    next.nameLower = patch.name.toLocaleLowerCase();
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const putRequest = store.put(next);
-    putRequest.onsuccess = () => resolve();
-    putRequest.onerror = () => reject(putRequest.error ?? new Error("Failed to update card"));
-  });
-
-  return next;
+  const data = (await response.json()) as CardApiRecord;
+  return normalizeCard(data);
 }
 
 export async function getCard(id: string): Promise<CardRecord | null> {
-  const store = await getCardsStore("readonly");
-
-  return new Promise<CardRecord | null>((resolve, reject) => {
-    const request = store.get(id);
-    request.onsuccess = () => {
-      resolve((request.result as CardRecord | undefined) ?? null);
-    };
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to load card"));
-    };
+  const response = await fetch(`${API_BASE}/cards/${id}`, {
+    credentials: "same-origin",
   });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+
+  const data = (await response.json()) as CardApiRecord;
+  return normalizeCard(data);
 }
 
 export type ListCardsFilter = {
@@ -101,74 +191,31 @@ export type ListCardsFilter = {
 };
 
 export async function listCards(filter: ListCardsFilter = {}): Promise<CardRecord[]> {
-  const store = await getCardsStore("readonly");
+  const params = new URLSearchParams();
+  if (filter.templateId) params.set("templateId", filter.templateId);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.search) params.set("search", filter.search);
 
-  const { templateId, status, search } = filter;
-  const cards: CardRecord[] = [];
+  const query = params.toString();
+  const path = query ? `${API_BASE}/cards?${query}` : `${API_BASE}/cards`;
 
-  await new Promise<void>((resolve, reject) => {
-    let request: IDBRequest;
-
-    if (templateId && status && store.indexNames.contains("templateId_status")) {
-      const index = store.index("templateId_status");
-      request = index.openCursor(IDBKeyRange.only([templateId, status]));
-    } else if (status && store.indexNames.contains("status")) {
-      const index = store.index("status");
-      request = index.openCursor(IDBKeyRange.only(status));
-    } else if (templateId && store.indexNames.contains("templateId")) {
-      const index = store.index("templateId");
-      request = index.openCursor(IDBKeyRange.only(templateId));
-    } else {
-      request = store.openCursor();
-    }
-
-    request.onsuccess = () => {
-      const cursor = request.result as IDBCursorWithValue | null;
-      if (!cursor) {
-        resolve();
-        return;
-      }
-      cards.push(cursor.value as CardRecord);
-      cursor.continue();
-    };
-
-    request.onerror = () => {
-      reject(request.error ?? new Error("Failed to list cards"));
-    };
-  });
-
-  let filtered = cards;
-
-  if (search) {
-    const q = search.toLocaleLowerCase();
-    filtered = filtered.filter((card) => card.nameLower.includes(q));
-  }
-
-  return filtered;
+  const data = (await fetchJson(path)) as CardApiRecord[];
+  return data.map((record) => normalizeCard(record));
 }
 
 export async function deleteCard(id: string): Promise<void> {
-  const store = await getCardsStore("readwrite");
-
-  await new Promise<void>((resolve, reject) => {
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error("Failed to delete card"));
+  await fetchJson(`${API_BASE}/cards/${id}`, {
+    method: "DELETE",
   });
 }
 
 export async function deleteCards(ids: string[]): Promise<void> {
   if (!ids.length) return;
-
-  const store = await getCardsStore("readwrite");
-
-  await new Promise<void>((resolve, reject) => {
-    ids.forEach((id) => {
-      store.delete(id);
-    });
-
-    const tx = store.transaction;
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error("Failed to delete cards"));
+  await fetchJson(`${API_BASE}/cards`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ids }),
   });
 }
