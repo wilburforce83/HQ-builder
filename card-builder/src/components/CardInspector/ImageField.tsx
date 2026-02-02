@@ -355,6 +355,7 @@ export default function ImageField({ label, boundsWidth, boundsHeight }: ImageFi
         isOpen={picker.isOpen}
         onClose={picker.close}
         mode="select"
+        excludeCategories={["icon"]}
         onSelect={handleSelect}
       />
     </div>

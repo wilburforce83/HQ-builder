@@ -13,6 +13,7 @@ import { useAssetHashIndex } from "@/hooks/useAssetHashIndex";
 import { generateId } from "@/lib";
 import { getNextAvailableFilename } from "@/lib/asset-filename";
 import { hashArrayBufferSha256 } from "@/lib/asset-hash";
+import { formatIconLabel, ICON_TYPE_OPTIONS } from "@/lib/icon-assets";
 import type { AssetRecord } from "@/lib/assets-db";
 import { addAsset, deleteAssets, getAllAssets, getAssetObjectUrl } from "@/lib/assets-db";
 import type { UploadScanReportItem } from "@/types/asset-duplicates";
@@ -28,6 +29,12 @@ type AssetsModalProps = {
   onClose: () => void;
   mode?: AssetsModalMode;
   onSelect?: (asset: AssetRecord) => void;
+  title?: string;
+  categoryFilter?: string;
+  excludeCategories?: string[];
+  uploadCategory?: string;
+  requireIconMeta?: boolean;
+  iconTypeOptions?: readonly string[];
 };
 
 type ConfirmState = {
@@ -76,8 +83,16 @@ export default function AssetsModal({
   onClose,
   mode = "manage",
   onSelect,
+  title,
+  categoryFilter,
+  excludeCategories,
+  uploadCategory,
+  requireIconMeta,
+  iconTypeOptions: iconTypeOptionsProp,
 }: AssetsModalProps) {
   const { t } = useI18n();
+  const iconTypeOptions = iconTypeOptionsProp ?? ICON_TYPE_OPTIONS;
+  const isIconUpload = uploadCategory === "icon" || requireIconMeta;
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [search, setSearch] = useState("");
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
@@ -86,6 +101,8 @@ export default function AssetsModal({
   const [uploadNotice, setUploadNotice] = useState<UploadNotice | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadReview, setUploadReview] = useState<UploadNotice | null>(null);
+  const [iconType, setIconType] = useState<string>(iconTypeOptions[0] ?? "Monster");
+  const [iconName, setIconName] = useState("");
   const reviewResolverRef = useRef<((shouldContinue: boolean) => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { scanFiles, addToIndex, removeFromIndex, existingNames } = useAssetHashIndex();
@@ -111,6 +128,13 @@ export default function AssetsModal({
       cancelled = true;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIconName("");
+      setIconType(iconTypeOptions[0] ?? "Monster");
+    }
+  }, [isOpen, iconTypeOptions]);
 
   useEffect(() => {
     if (!isOpen || assets.length === 0) {
@@ -154,9 +178,23 @@ export default function AssetsModal({
     }
   }, [isOpen, selectedIds]);
 
-  const filteredAssets = search
-    ? assets.filter((asset) => asset.name.toLowerCase().includes(search.toLowerCase()))
-    : assets;
+  const filteredAssets = (() => {
+    const filteredByCategory = assets.filter((asset) => {
+      const category = asset.category ?? null;
+      if (categoryFilter && category !== categoryFilter) return false;
+      if (excludeCategories && category && excludeCategories.includes(category)) return false;
+      return true;
+    });
+
+    if (!search) return filteredByCategory;
+    const term = search.toLowerCase();
+    return filteredByCategory.filter((asset) => {
+      if (asset.name.toLowerCase().includes(term)) return true;
+      if (asset.iconName && asset.iconName.toLowerCase().includes(term)) return true;
+      if (asset.iconType && asset.iconType.toLowerCase().includes(term)) return true;
+      return false;
+    });
+  })();
 
   const handleConfirmDelete = async (ids: string[]) => {
     try {
@@ -172,6 +210,10 @@ export default function AssetsModal({
 
   const handleUpload = async (files: File[], input: HTMLInputElement) => {
     if (files.length === 0) return;
+    if (isIconUpload && !iconName.trim()) {
+      alert("Please enter an icon name before uploading.");
+      return;
+    }
     let completedCount = 0;
     let keepProgressOpen = false;
 
@@ -393,6 +435,11 @@ export default function AssetsModal({
             mimeType: file.type,
             width,
             height,
+            category: isIconUpload ? "icon" : uploadCategory,
+            gridW: isIconUpload ? 1 : undefined,
+            gridH: isIconUpload ? 1 : undefined,
+            iconType: isIconUpload ? iconType : undefined,
+            iconName: isIconUpload ? iconName.trim() : undefined,
           });
           if (ENABLE_UPLOAD_PROGRESS) {
             setUploadProgress((prev) =>
@@ -494,6 +541,9 @@ export default function AssetsModal({
         setUploadProgress(null);
       }
       input.value = "";
+      if (isIconUpload) {
+        setIconName("");
+      }
     }
   };
 
@@ -516,7 +566,7 @@ export default function AssetsModal({
     <ModalShell
       isOpen={isOpen}
       onClose={onClose}
-      title={t("heading.assets")}
+      title={title ?? t("heading.assets")}
       contentClassName={styles.assetsPopover}
     >
       <div className={styles.assetsToolbar}>
@@ -541,9 +591,9 @@ export default function AssetsModal({
             onClick={() => {
               fileInputRef.current?.click();
             }}
-            title={t("tooltip.uploadImages")}
+            title={isIconUpload ? "Upload icon" : t("tooltip.uploadImages")}
           >
-            {t("actions.upload")}
+            {isIconUpload ? "Upload Icon" : t("actions.upload")}
           </IconButton>
           {mode === "manage" && (
             <IconButton
@@ -566,7 +616,7 @@ export default function AssetsModal({
           <input
             ref={fileInputRef}
             type="file"
-            multiple
+            multiple={!isIconUpload}
             accept="image/png,image/jpeg,image/webp"
             style={{ display: "none" }}
             onChange={async (event) => {
@@ -577,19 +627,49 @@ export default function AssetsModal({
           />
         </div>
       </div>
+      {isIconUpload ? (
+        <div className={styles.assetsIconMeta}>
+          <div className={styles.assetsIconMetaField}>
+            <label className="form-label">Icon Type</label>
+            <select
+              className="form-select form-select-sm"
+              value={iconType}
+              onChange={(event) => setIconType(event.target.value)}
+            >
+              {iconTypeOptions.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.assetsIconMetaField}>
+            <label className="form-label">Icon Name</label>
+            <input
+              className="form-control form-control-sm"
+              type="text"
+              value={iconName}
+              onChange={(event) => setIconName(event.target.value)}
+              placeholder="e.g. Goblin"
+            />
+          </div>
+        </div>
+      ) : null}
       <div className={styles.assetsGridContainer}>
         {filteredAssets.length === 0 ? (
           <div className={styles.assetsEmptyState}>{t("empty.noAssets")}</div>
         ) : (
           <div className={styles.assetsGrid}>
             {filteredAssets.map((asset) => {
+              const displayName =
+                asset.category === "icon" ? formatIconLabel(asset) : asset.name;
               const isSelected = selectedIds.has(asset.id);
               return (
                 <button
                   key={asset.id}
                   type="button"
                   className={`${styles.assetsItem} ${isSelected ? styles.assetsItemSelected : ""}`}
-                  title={asset.name}
+                  title={displayName}
                   onClick={() => {
                     setSelectedIds((prev) => {
                       if (mode === "select") {
@@ -617,17 +697,20 @@ export default function AssetsModal({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={thumbUrls[asset.id]}
-                        alt={asset.name}
+                        alt={displayName}
                         className={styles.assetsThumbImage}
                       />
                     ) : null}
                   </div>
                   <div className={styles.assetsItemMeta}>
-                    <div className={styles.assetsItemName} title={asset.name}>
-                      {asset.name}
+                    <div className={styles.assetsItemName} title={displayName}>
+                      {displayName}
                     </div>
                     <div className={styles.assetsItemDetails}>
                       {asset.width}×{asset.height} · {asset.mimeType}
+                      {asset.category === "icon" && (asset.iconType || asset.iconName)
+                        ? ` · ${formatIconLabel(asset)}`
+                        : ""}
                     </div>
                   </div>
                 </button>
@@ -822,6 +905,9 @@ function AssetsModalFooter({
       if (draft && draft.imageAssetId && idSet.has(draft.imageAssetId)) {
         affectedDraftCount += 1;
       }
+      if (draft && "iconAssetId" in draft && draft.iconAssetId && idSet.has(draft.iconAssetId)) {
+        affectedDraftCount += 1;
+      }
     });
 
     return (
@@ -874,6 +960,25 @@ function AssetsModalFooter({
                   imageOriginalHeight: undefined,
                   imageOffsetX: undefined,
                   imageOffsetY: undefined,
+                } as never,
+              );
+            });
+
+            (
+              Object.entries(cardDrafts) as [
+                TemplateId,
+                CardDataByTemplate[TemplateId] | undefined,
+              ][]
+            ).forEach(([templateId, draft]) => {
+              if (!draft || !("iconAssetId" in draft) || !draft.iconAssetId) return;
+              if (!idSet.has(draft.iconAssetId)) return;
+
+              setCardDraft(
+                templateId as TemplateId,
+                {
+                  ...draft,
+                  iconAssetId: undefined,
+                  iconAssetName: undefined,
                 } as never,
               );
             });

@@ -8,6 +8,7 @@ import { AssetsModal } from "@/components/Assets";
 import IconButton from "@/components/IconButton";
 import { usePopupState } from "@/hooks/usePopupState";
 import { useI18n } from "@/i18n/I18nProvider";
+import { formatIconLabel, ICON_TYPE_OPTIONS } from "@/lib/icon-assets";
 
 type MonsterIconFieldProps = {
   label: string;
@@ -77,9 +78,17 @@ export default function MonsterIconField({ label }: MonsterIconFieldProps) {
         isOpen={picker.isOpen}
         onClose={picker.close}
         mode="select"
+        title="Icon Library"
+        categoryFilter="icon"
+        uploadCategory="icon"
+        requireIconMeta
+        iconTypeOptions={ICON_TYPE_OPTIONS}
         onSelect={(asset) => {
           setValue("iconAssetId", asset.id, { shouldDirty: true, shouldTouch: true });
-          setValue("iconAssetName", asset.name, { shouldDirty: true, shouldTouch: true });
+          setValue("iconAssetName", formatIconLabel(asset), {
+            shouldDirty: true,
+            shouldTouch: true,
+          });
         }}
       />
     </div>

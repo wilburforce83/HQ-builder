@@ -677,6 +677,21 @@
   gap: 0.5rem;
 }
 
+.assetsIconMeta {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.assetsIconMetaField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 160px;
+}
+
 .cardsFilters {
   display: flex;
   align-items: center;

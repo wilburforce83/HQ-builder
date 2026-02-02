@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import boardData from "@/data/boardData";
+import { formatIconLabel, ICON_TYPE_OPTIONS } from "@/lib/icon-assets";
 import styles from "./quest.module.css";
 
 const columns = 26;
@@ -17,6 +18,8 @@ type Asset = {
   category?: string | null;
   gridW?: number | null;
   gridH?: number | null;
+  iconType?: string | null;
+  iconName?: string | null;
 };
 
 type PaletteItem = {
@@ -118,7 +121,7 @@ const builtInAssets: PaletteItem[] = [
 ];
 
 function categoryToLayer(category: string) {
-  if (category === "monster" || category === "hero") return "monster" as const;
+  if (category === "monster" || category === "hero" || category === "icon") return "monster" as const;
   if (category === "furniture") return "furniture" as const;
   return "tile" as const;
 }
@@ -164,6 +167,8 @@ export default function QuestBuilderPage() {
     category: "monster",
     gridW: 1,
     gridH: 1,
+    iconType: ICON_TYPE_OPTIONS[0] ?? "Monster",
+    iconName: "",
   });
 
   useEffect(() => {
@@ -212,16 +217,19 @@ export default function QuestBuilderPage() {
   }, [form.story, form.notes]);
 
   const customAssets = useMemo<PaletteItem[]>(() => {
-    return assets.map((asset) => ({
-      id: asset.id,
-      name: asset.name,
-      url: `/api/assets/${asset.id}/blob`,
-      category: asset.category ?? "custom",
-      gridW: asset.gridW ?? 1,
-      gridH: asset.gridH ?? 1,
-      layer: categoryToLayer(asset.category ?? "custom"),
-      source: "custom",
-    }));
+    return assets.map((asset) => {
+      const name = asset.category === "icon" ? formatIconLabel(asset) : asset.name;
+      return {
+        id: asset.id,
+        name,
+        url: `/api/assets/${asset.id}/blob`,
+        category: asset.category ?? "custom",
+        gridW: asset.gridW ?? 1,
+        gridH: asset.gridH ?? 1,
+        layer: categoryToLayer(asset.category ?? "custom"),
+        source: "custom",
+      };
+    });
   }, [assets]);
 
   const paletteByCategory = useMemo(() => {
@@ -432,6 +440,11 @@ export default function QuestBuilderPage() {
     const fileInput = formEl.querySelector<HTMLInputElement>("input[type=file]");
     const file = fileInput?.files?.[0];
     if (!file) return;
+    const isIconUpload = upload.category === "icon";
+    if (isIconUpload && !upload.iconName.trim()) {
+      alert("Please enter an icon name.");
+      return;
+    }
 
     const img = new Image();
     img.src = URL.createObjectURL(file);
@@ -447,8 +460,12 @@ export default function QuestBuilderPage() {
     formData.append("width", String(img.naturalWidth || 0));
     formData.append("height", String(img.naturalHeight || 0));
     formData.append("category", upload.category);
-    formData.append("gridW", String(upload.gridW));
-    formData.append("gridH", String(upload.gridH));
+    formData.append("gridW", String(isIconUpload ? 1 : upload.gridW));
+    formData.append("gridH", String(isIconUpload ? 1 : upload.gridH));
+    if (isIconUpload) {
+      formData.append("iconType", upload.iconType);
+      formData.append("iconName", upload.iconName.trim());
+    }
 
     URL.revokeObjectURL(img.src);
 
@@ -461,6 +478,9 @@ export default function QuestBuilderPage() {
     const updated = await fetch("/api/assets").then((r) => r.json());
     setAssets(updated);
     formEl.reset();
+    if (isIconUpload) {
+      setUpload((prev) => ({ ...prev, iconName: "" }));
+    }
   };
 
   const handleWanderingDrop = (event: React.DragEvent) => {
@@ -524,18 +544,66 @@ export default function QuestBuilderPage() {
             <form onSubmit={handleUpload} className={styles.formGroup}>
               <input type="file" accept="image/png" />
               <label>Category</label>
-              <select value={upload.category} onChange={(e) => setUpload((prev) => ({ ...prev, category: e.target.value }))}>
+              <select
+                value={upload.category}
+                onChange={(e) =>
+                  setUpload((prev) => ({
+                    ...prev,
+                    category: e.target.value,
+                    gridW: e.target.value === "icon" ? 1 : prev.gridW,
+                    gridH: e.target.value === "icon" ? 1 : prev.gridH,
+                  }))
+                }
+              >
                 <option value="monster">Monster</option>
                 <option value="furniture">Furniture</option>
                 <option value="tile">Tile</option>
                 <option value="marking">Marking</option>
+                <option value="icon">Icon</option>
               </select>
+              {upload.category === "icon" ? (
+                <>
+                  <label>Icon Type</label>
+                  <select
+                    value={upload.iconType}
+                    onChange={(e) =>
+                      setUpload((prev) => ({ ...prev, iconType: e.target.value }))
+                    }
+                  >
+                    {ICON_TYPE_OPTIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                  <label>Icon Name</label>
+                  <input
+                    type="text"
+                    value={upload.iconName}
+                    onChange={(e) =>
+                      setUpload((prev) => ({ ...prev, iconName: e.target.value }))
+                    }
+                  />
+                </>
+              ) : null}
               <label>Grid Width</label>
-              <select value={upload.gridW} onChange={(e) => setUpload((prev) => ({ ...prev, gridW: Number(e.target.value) }))}>
+              <select
+                value={upload.gridW}
+                disabled={upload.category === "icon"}
+                onChange={(e) =>
+                  setUpload((prev) => ({ ...prev, gridW: Number(e.target.value) }))
+                }
+              >
                 {[1,2,3].map((n) => (<option key={n} value={n}>{n}</option>))}
               </select>
               <label>Grid Height</label>
-              <select value={upload.gridH} onChange={(e) => setUpload((prev) => ({ ...prev, gridH: Number(e.target.value) }))}>
+              <select
+                value={upload.gridH}
+                disabled={upload.category === "icon"}
+                onChange={(e) =>
+                  setUpload((prev) => ({ ...prev, gridH: Number(e.target.value) }))
+                }
+              >
                 {[1,2,3].map((n) => (<option key={n} value={n}>{n}</option>))}
               </select>
               <button type="submit">Upload</button>

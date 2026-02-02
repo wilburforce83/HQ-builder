@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
+import { isIconFilename, parseIconMetaFromFilename } from "@/lib/icon-assets";
 
 const dbPath =
   process.env.HQ_DB_PATH ?? path.join(process.cwd(), "..", "db", "hqbuilder.db");
@@ -9,9 +10,17 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 const DEFAULT_USER_ID = 1;
 
 type TableColumn = { name: string };
+
+function tableExists(table: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+    .get(table) as { name?: string } | undefined;
+  return Boolean(row?.name);
+}
 
 function columnExists(table: string, column: string): boolean {
   const rows = db.prepare(`PRAGMA table_info(${table})`).all() as TableColumn[];
@@ -36,6 +45,8 @@ function initDb() {
       category TEXT,
       grid_w INTEGER,
       grid_h INTEGER,
+      icon_type TEXT,
+      icon_name TEXT,
       blob BLOB NOT NULL
     );
 
@@ -114,6 +125,8 @@ function initDb() {
   addColumn("assets", "category TEXT", "category");
   addColumn("assets", "grid_w INTEGER", "grid_w");
   addColumn("assets", "grid_h INTEGER", "grid_h");
+  addColumn("assets", "icon_type TEXT", "icon_type");
+  addColumn("assets", "icon_name TEXT", "icon_name");
   addColumn("cards", "thumbnail_data_url TEXT", "thumbnail_data_url");
   addColumn("assets", "user_id INTEGER", "user_id");
   addColumn("cards", "user_id INTEGER", "user_id");
@@ -122,6 +135,64 @@ function initDb() {
 }
 
 initDb();
+
+function migrateIconAssets() {
+  if (!tableExists("assets")) return;
+
+  const rows = db
+    .prepare(
+      "SELECT id,name,category,grid_w,grid_h,icon_type,icon_name FROM assets",
+    )
+    .all() as Array<{
+    id: string;
+    name: string;
+    category: string | null;
+    grid_w: number | null;
+    grid_h: number | null;
+    icon_type: string | null;
+    icon_name: string | null;
+  }>;
+
+  const update = db.prepare(
+    "UPDATE assets SET category=?, grid_w=?, grid_h=?, icon_type=?, icon_name=? WHERE id=?",
+  );
+
+  for (const row of rows) {
+    if (!isIconFilename(row.name)) continue;
+
+    const parsed = parseIconMetaFromFilename(row.name);
+    const iconType = row.icon_type ?? parsed.iconType ?? null;
+    const iconName = row.icon_name ?? parsed.iconName ?? null;
+
+    const needsUpdate =
+      row.category !== "icon" ||
+      row.grid_w !== 1 ||
+      row.grid_h !== 1 ||
+      row.icon_type !== iconType ||
+      row.icon_name !== iconName;
+
+    if (!needsUpdate) continue;
+
+    update.run("icon", 1, 1, iconType, iconName, row.id);
+  }
+}
+
+migrateIconAssets();
+
+function ensureDefaultUser() {
+  if (!tableExists("users")) return;
+  const row = db.prepare("SELECT id FROM users WHERE id=?").get(DEFAULT_USER_ID) as
+    | { id: number }
+    | undefined;
+  if (row) return;
+  db.prepare("INSERT INTO users (id, username, hash) VALUES (?, ?, ?)").run(
+    DEFAULT_USER_ID,
+    "local",
+    "local",
+  );
+}
+
+ensureDefaultUser();
 
 const hasUserId = {
   assets: columnExists("assets", "user_id"),

@@ -327,6 +327,11 @@ async function applyBackupObject(
           mimeType: assetExport.mimeType,
           width: assetExport.width,
           height: assetExport.height,
+          category: assetExport.category ?? undefined,
+          gridW: assetExport.gridW ?? undefined,
+          gridH: assetExport.gridH ?? undefined,
+          iconType: assetExport.iconType ?? undefined,
+          iconName: assetExport.iconName ?? undefined,
         });
         assetsCount += 1;
         onProgress?.(assetsCount + cardsCount + collectionsCount, total, "import");

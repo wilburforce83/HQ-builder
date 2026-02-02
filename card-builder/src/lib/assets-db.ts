@@ -7,6 +7,11 @@ export type AssetRecord = {
   width: number;
   height: number;
   createdAt: number;
+  category?: string | null;
+  gridW?: number | null;
+  gridH?: number | null;
+  iconType?: string | null;
+  iconName?: string | null;
 };
 
 export type AssetRecordWithBlob = AssetRecord & {
@@ -42,6 +47,11 @@ export async function addAsset(
   form.append("mimeType", meta.mimeType);
   form.append("width", String(meta.width));
   form.append("height", String(meta.height));
+  if (meta.category) form.append("category", meta.category);
+  if (meta.gridW != null) form.append("gridW", String(meta.gridW));
+  if (meta.gridH != null) form.append("gridH", String(meta.gridH));
+  if (meta.iconType) form.append("iconType", meta.iconType);
+  if (meta.iconName) form.append("iconName", meta.iconName);
 
   await fetchJson(`${API_BASE}/assets`, {
     method: "POST",
@@ -49,13 +59,23 @@ export async function addAsset(
   });
 }
 
-export async function getAllAssets(): Promise<AssetRecord[]> {
-  const data = (await fetchJson(`${API_BASE}/assets`)) as AssetRecord[];
+export async function getAllAssets(options?: {
+  category?: string;
+  excludeCategory?: string;
+}): Promise<AssetRecord[]> {
+  const params = new URLSearchParams();
+  if (options?.category) params.set("category", options.category);
+  if (options?.excludeCategory) params.set("excludeCategory", options.excludeCategory);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const data = (await fetchJson(`${API_BASE}/assets${suffix}`)) as AssetRecord[];
   return data ?? [];
 }
 
-export async function getAllAssetsWithBlobs(): Promise<AssetRecordWithBlob[]> {
-  const records = await getAllAssets();
+export async function getAllAssetsWithBlobs(options?: {
+  category?: string;
+  excludeCategory?: string;
+}): Promise<AssetRecordWithBlob[]> {
+  const records = await getAllAssets(options);
   const results: AssetRecordWithBlob[] = [];
 
   for (const record of records) {
