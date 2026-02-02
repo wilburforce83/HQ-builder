@@ -13,6 +13,17 @@ out/
 
 .DS_Store
 
+# SQLite temp files
+db/*.db-wal
+db/*.db-shm
+db/*.db-journal
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Flask session data
+flask_session/
+
 # Python
 __pycache__/
 *.py[cod]

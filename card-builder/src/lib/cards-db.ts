@@ -19,7 +19,7 @@ export type CardCreateInput = Omit<
   createdAt?: number;
   updatedAt?: number;
   nameLower?: string;
-  schemaVersion?: number;
+  schemaVersion?: 1;
   thumbnailBlob?: Blob | null;
 };
 
@@ -114,7 +114,7 @@ export async function createCard(input: CardCreateInput): Promise<CardRecord> {
   const createdAt = input.createdAt ?? now;
   const updatedAt = input.updatedAt ?? now;
   const nameLower = input.nameLower ?? input.name.toLocaleLowerCase();
-  const schemaVersion = input.schemaVersion ?? 1;
+  const schemaVersion: 1 = 1;
 
   const payload = await serializeCardPayload({
     ...input,

@@ -27,6 +27,7 @@
   "dependencies": {
     "@next/third-parties": "^16.1.0",
     "@svgr/webpack": "^8.1.0",
+    "better-sqlite3": "^11.7.0",
     "bootstrap": "^5.3.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.561.0",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/jest": "^29.5.12",
     "@types/node": "^20",
     "@types/react": "^18",

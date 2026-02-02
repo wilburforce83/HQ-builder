@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   authors: [{ name: "HeroQuest Card Creator" }],
   alternates: { canonical: "/" },
   icons: {
-    icon: "./favicon.ico",
-    shortcut: "./favicon.ico",
-    apple: "./favicon.ico",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
   openGraph: {
     title: "HeroQuest Card Creator",
@@ -69,7 +69,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             __html: `
 @font-face {
   font-family: "Carter Sans W01";
-  src: url("./fonts/Carter Sans W01 Regular.ttf") format("truetype");
+  src: url("/fonts/Carter Sans W01 Regular.ttf") format("truetype");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -77,7 +77,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
 @font-face {
   font-family: "Carter Sans W01";
-  src: url("./fonts/Carter Sans W01 Medium.ttf") format("truetype");
+  src: url("/fonts/Carter Sans W01 Medium.ttf") format("truetype");
   font-style: normal;
   font-weight: 550;
   font-display: swap;
@@ -85,7 +85,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
 @font-face {
   font-family: "Carter Sans W01";
-  src: url("./fonts/Carter Sans W01 Bold.ttf") format("truetype");
+  src: url("/fonts/Carter Sans W01 Bold.ttf") format("truetype");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -93,7 +93,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
 @font-face {
   font-family: "HeroQuest";
-  src: url("./fonts/HeroQuest.ttf") format("truetype");
+  src: url("/fonts/HeroQuest.ttf") format("truetype");
   font-style: normal;
   font-weight: 400;
   font-display: swap;

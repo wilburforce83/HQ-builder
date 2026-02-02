@@ -28,7 +28,7 @@ export async function createCollection(input: {
   cardIds?: string[];
   createdAt?: number;
   updatedAt?: number;
-  schemaVersion?: number;
+  schemaVersion?: 1;
 }): Promise<CollectionRecord> {
   const now = Date.now();
   const record: CollectionRecord = {
@@ -38,7 +38,7 @@ export async function createCollection(input: {
     cardIds: input.cardIds ?? [],
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
-    schemaVersion: input.schemaVersion ?? 1,
+    schemaVersion: 1,
   };
 
   const data = (await fetchJson(`${API_BASE}/collections`, {

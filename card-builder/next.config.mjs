@@ -1,12 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Always emit a static export that can be opened from
-  // the filesystem or dropped into any folder on a server.
-  output: "export",
-  // Load Next runtime assets relative to the current page
-  // so the bundle can live under any subpath.
-  assetPrefix: "./",
-  trailingSlash: true,
+  // Server build (API routes + DB) lives in Next runtime.
   eslint: {
     ignoreDuringBuilds: true,
   },
