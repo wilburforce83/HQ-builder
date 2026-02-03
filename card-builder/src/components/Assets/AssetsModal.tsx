@@ -112,7 +112,10 @@ export default function AssetsModal({
 
     let cancelled = false;
 
-    getAllAssets()
+    getAllAssets({
+      category: categoryFilter ?? undefined,
+      excludeCategory: excludeCategories?.[0],
+    })
       .then((records) => {
         if (!cancelled) {
           setAssets(records);
@@ -200,7 +203,10 @@ export default function AssetsModal({
     try {
       await deleteAssets(ids);
       removeFromIndex(ids);
-      const records = await getAllAssets();
+      const records = await getAllAssets({
+        category: categoryFilter ?? undefined,
+        excludeCategory: excludeCategories?.[0],
+      });
       setAssets(records);
     } catch {
       // eslint-disable-next-line no-console
@@ -518,7 +524,10 @@ export default function AssetsModal({
         );
       }
 
-      const records = await getAllAssets();
+      const records = await getAllAssets({
+        category: categoryFilter ?? undefined,
+        excludeCategory: excludeCategories?.[0],
+      });
       setAssets(records);
       if (ENABLE_UPLOAD_PROGRESS) {
         setUploadProgress((prev) =>

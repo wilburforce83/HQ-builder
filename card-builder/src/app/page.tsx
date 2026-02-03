@@ -31,6 +31,8 @@ type PaletteItem = {
   gridH: number;
   layer: "tile" | "furniture" | "monster";
   source: "builtin" | "custom";
+  isIcon?: boolean;
+  iconTint?: "black" | "blue";
 };
 
 type PlacedItem = {
@@ -126,6 +128,83 @@ function categoryToLayer(category: string) {
   return "tile" as const;
 }
 
+function iconCategoryForType(iconType?: string | null) {
+  const raw = iconType?.trim().toLowerCase();
+  if (!raw) return "other";
+  if (raw === "monster") return "monster";
+  if (raw === "hero") return "hero";
+  if (raw === "npc") return "npc";
+  return raw;
+}
+
+function displayCategoryLabel(category: string) {
+  if (category === "monster") return "Monsters";
+  if (category === "hero") return "Heroes";
+  if (category === "npc") return "NPCs";
+  if (category.length === 0) return "Other";
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+type TintColor = { r: number; g: number; b: number };
+const ICON_TINTS: Record<"black" | "blue", TintColor> = {
+  black: { r: 20, g: 20, b: 20 },
+  blue: { r: 40, g: 80, b: 180 },
+};
+
+async function buildTintedIconUrl(
+  url: string,
+  tint: "black" | "blue",
+): Promise<string> {
+  if (typeof window === "undefined") return url;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return url;
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = objectUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load icon"));
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || 1;
+    canvas.height = img.naturalHeight || 1;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(objectUrl);
+      return url;
+    }
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const { r, g, b } = ICON_TINTS[tint];
+    const whiteThreshold = 230;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const alpha = data[i + 3];
+      if (alpha === 0) continue;
+      const red = data[i];
+      const green = data[i + 1];
+      const blue = data[i + 2];
+      if (red >= whiteThreshold && green >= whiteThreshold && blue >= whiteThreshold) {
+        continue;
+      }
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    const tintedUrl = canvas.toDataURL();
+    URL.revokeObjectURL(objectUrl);
+    return tintedUrl;
+  } catch {
+    return url;
+  }
+}
+
 function spanForRotation(baseW: number, baseH: number, rotation: number) {
   if (rotation % 180 === 0) {
     return { w: baseW, h: baseH };
@@ -156,6 +235,9 @@ export default function QuestBuilderPage() {
   const [quests, setQuests] = useState<QuestRecord[]>([]);
   const [assetRatios, setAssetRatios] = useState<Record<string, number>>({});
   const [currentQuestId, setCurrentQuestId] = useState<string | null>(null);
+  const [paletteSearch, setPaletteSearch] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [tintedIcons, setTintedIcons] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     title: "",
     author: "",
@@ -182,6 +264,59 @@ export default function QuestBuilderPage() {
       .then((data) => setQuests(data))
       .catch(() => setQuests([]));
   }, []);
+
+  const customAssets = useMemo<PaletteItem[]>(() => {
+    return assets.map((asset) => {
+      if (asset.category === "icon") {
+        const iconCategory = iconCategoryForType(asset.iconType);
+        const tint = iconCategory === "npc" ? "blue" : "black";
+        return {
+          id: asset.id,
+          name: formatIconLabel(asset),
+          url: `/api/assets/${asset.id}/blob`,
+          category: iconCategory,
+          gridW: 1,
+          gridH: 1,
+          layer: "monster",
+          source: "custom",
+          isIcon: true,
+          iconTint: tint,
+        };
+      }
+
+      return {
+        id: asset.id,
+        name: asset.name,
+        url: `/api/assets/${asset.id}/blob`,
+        category: asset.category ?? "custom",
+        gridW: asset.gridW ?? 1,
+        gridH: asset.gridH ?? 1,
+        layer: categoryToLayer(asset.category ?? "custom"),
+        source: "custom",
+      };
+    });
+  }, [assets]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const iconsToProcess = customAssets.filter(
+      (item) => item.isIcon && !tintedIcons[item.id] && item.iconTint,
+    );
+
+    if (iconsToProcess.length === 0) return () => {};
+
+    (async () => {
+      for (const icon of iconsToProcess) {
+        const tinted = await buildTintedIconUrl(icon.url, icon.iconTint ?? "black");
+        if (cancelled) return;
+        setTintedIcons((prev) => (prev[icon.id] ? prev : { ...prev, [icon.id]: tinted }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [customAssets, tintedIcons]);
 
   useEffect(() => {
     const mapColumn = mapColumnRef.current;
@@ -216,22 +351,6 @@ export default function QuestBuilderPage() {
     autoSize(notesRef.current);
   }, [form.story, form.notes]);
 
-  const customAssets = useMemo<PaletteItem[]>(() => {
-    return assets.map((asset) => {
-      const name = asset.category === "icon" ? formatIconLabel(asset) : asset.name;
-      return {
-        id: asset.id,
-        name,
-        url: `/api/assets/${asset.id}/blob`,
-        category: asset.category ?? "custom",
-        gridW: asset.gridW ?? 1,
-        gridH: asset.gridH ?? 1,
-        layer: categoryToLayer(asset.category ?? "custom"),
-        source: "custom",
-      };
-    });
-  }, [assets]);
-
   const paletteByCategory = useMemo(() => {
     const all = [...builtInAssets, ...customAssets];
     const buckets: Record<string, PaletteItem[]> = {};
@@ -242,6 +361,47 @@ export default function QuestBuilderPage() {
     }
     return buckets;
   }, [customAssets]);
+
+  const paletteSections = useMemo(() => {
+    const entries = Object.entries(paletteByCategory);
+    const order = [
+      "monster",
+      "hero",
+      "npc",
+      "boss",
+      "minion",
+      "ally",
+      "villain",
+      "furniture",
+      "tile",
+      "marking",
+      "item",
+      "trap",
+      "objective",
+      "custom",
+      "other",
+      "icon",
+    ];
+    const sortIndex = new Map(order.map((value, idx) => [value, idx]));
+
+    const normalizedSearch = paletteSearch.trim().toLowerCase();
+    const filtered = entries
+      .map(([category, items]) => {
+        const visibleItems = normalizedSearch
+          ? items.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
+          : items;
+        return [category, visibleItems] as const;
+      })
+      .filter(([, items]) => items.length > 0 || !normalizedSearch)
+      .sort(([a], [b]) => {
+        const aIdx = sortIndex.has(a) ? sortIndex.get(a)! : order.length + 1;
+        const bIdx = sortIndex.has(b) ? sortIndex.get(b)! : order.length + 1;
+        if (aIdx !== bIdx) return aIdx - bIdx;
+        return a.localeCompare(b);
+      });
+
+    return filtered;
+  }, [paletteByCategory, paletteSearch]);
 
   const handleDragStart = (item: PaletteItem, event: React.DragEvent) => {
     const payload = {
@@ -504,40 +664,76 @@ export default function QuestBuilderPage() {
   }, [customAssets]);
 
   const wanderingPalette = wanderingIcon ? itemById.get(wanderingIcon.assetId) : null;
+  const getPaletteUrl = (item: PaletteItem) =>
+    item.isIcon ? tintedIcons[item.id] ?? item.url : item.url;
 
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <img className={styles.logo} src="/static/img/ui/logo.png" alt="HeroQuest" />
-        <strong>HeroQuest Quest Builder</strong>
+        <strong>Quest Builder</strong>
         <button type="button" onClick={handleNew}>New Quest</button>
         <button type="button" onClick={handleSave}>Save Quest</button>
         <button type="button" onClick={() => window.print()}>Print</button>
         <button type="button" onClick={handleDeleteSelected}>Delete Selected Item</button>
-        <a href="/cards" style={{ marginLeft: "auto", textDecoration: "none" }}>Card Builder →</a>
+        <a href="/cards" className={styles.toolbarLink}>
+          Card Builder →
+        </a>
       </div>
       <div className={styles.layout}>
         <aside className={`${styles.sidebar} ${styles.sidebarLeft}`}>
           <div>
             <div className={styles.sectionTitle}>Palette</div>
-            {Object.entries(paletteByCategory).map(([category, items]) => (
-              <div key={category} style={{ marginTop: 12 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{category}</div>
-                <div className={styles.palette}>
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className={styles.paletteItem}
-                      draggable
-                      onDragStart={(event) => handleDragStart(item, event)}
-                      title={`${item.name} (${item.gridW}x${item.gridH})`}
-                    >
-                      <img src={item.url} alt={item.name} />
+            <div className={styles.paletteSearch}>
+              <input
+                type="search"
+                placeholder="Search palette..."
+                value={paletteSearch}
+                onChange={(event) => setPaletteSearch(event.target.value)}
+              />
+            </div>
+            {paletteSections.map(([category, items]) => {
+              const isCollapsed = collapsedSections[category] ?? false;
+              const collapseAllowed = paletteSearch.trim().length === 0;
+              const shouldCollapse = collapseAllowed && isCollapsed;
+              return (
+                <div key={category} style={{ marginTop: 12 }}>
+                  <div className={styles.paletteHeader}>
+                    <div className={styles.paletteTitle}>
+                      {displayCategoryLabel(category)}{" "}
+                      <span className={styles.paletteCount}>({items.length})</span>
                     </div>
-                  ))}
+                    <button
+                      type="button"
+                      className={styles.paletteToggle}
+                      onClick={() =>
+                        setCollapsedSections((prev) => ({
+                          ...prev,
+                          [category]: !isCollapsed,
+                        }))
+                      }
+                    >
+                      {shouldCollapse ? "Show" : "Hide"}
+                    </button>
+                  </div>
+                  {!shouldCollapse ? (
+                    <div className={styles.palette}>
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={styles.paletteItem}
+                          draggable
+                          onDragStart={(event) => handleDragStart(item, event)}
+                          title={`${item.name} (${item.gridW}x${item.gridH})`}
+                        >
+                      <img src={getPaletteUrl(item)} alt={item.name} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div>
             <div className={styles.sectionTitle}>Upload Custom Icon</div>
@@ -658,7 +854,7 @@ export default function QuestBuilderPage() {
                     onClick={() => handleItemClick(item.id)}
                   >
                     <img
-                      src={palette.url}
+                      src={getPaletteUrl(palette)}
                       alt={palette.name}
                       onLoad={(event) => {
                         const target = event.currentTarget;
@@ -731,7 +927,11 @@ export default function QuestBuilderPage() {
                 onClick={() => setWanderingIcon(null)}
                 title="Drop a monster here (click to clear)"
               >
-                {wanderingPalette ? <img src={wanderingPalette.url} alt="Wandering Monster" /> : <span>Drop</span>}
+                {wanderingPalette ? (
+                  <img src={getPaletteUrl(wanderingPalette)} alt="Wandering Monster" />
+                ) : (
+                  <span>Drop</span>
+                )}
               </div>
             </div>
           </div>

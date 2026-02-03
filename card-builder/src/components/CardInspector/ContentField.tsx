@@ -26,7 +26,6 @@ export default function ContentField({ label }: ContentFieldProps) {
         id="description"
         className="form-control form-control-sm"
         rows={6}
-        style={{ backgroundColor: "#333", color: "#f5f5f5" }}
         title={t("tooltip.rulesAndFlavour")}
         {...register("description", {
           maxLength: {

@@ -1,28 +1,28 @@
 :root {
   /* Core HeroQuest-inspired theme, shared with other tools */
-  --hq-bg: radial-gradient(circle at top, #343434, #090909);
-  --hq-panel-bg: #202020;
-  --hq-header-bg: linear-gradient(135deg, #1f1b15, #0c0c0c);
-  --hq-toolbar-bg: linear-gradient(135deg, #1e1b16, #111111);
-  --hq-accent: #e6b35a;
-  --hq-accent-soft: #4a3718;
-  --hq-accent-soft-hover: #5a431f;
-  --hq-border-color: #333333;
-  --hq-text: #f5f5f5;
-  --hq-text-muted: #b0b0b0;
+  --hq-bg: #f6f1e8;
+  --hq-panel-bg: #f3ead8;
+  --hq-header-bg: #f6f1e8;
+  --hq-toolbar-bg: #f6f1e8;
+  --hq-accent: #3c2f25;
+  --hq-accent-soft: #e8d7b8;
+  --hq-accent-soft-hover: #d9c49e;
+  --hq-border-color: #5d4a3a;
+  --hq-text: #2b2b2b;
+  --hq-text-muted: #6b5b4b;
 
   /* Feedback / status tokens */
-  --hq-focus-ring: #f97316;
-  --hq-error-text: #fecaca;
-  --hq-error-soft: #fca5a5;
-  --hq-stat-minus: #7f1d1d;
-  --hq-stat-minus-hover: #991b1b;
-  --hq-stat-plus: #14532d;
-  --hq-stat-plus-hover: #166534;
+  --hq-focus-ring: #c97a1b;
+  --hq-error-text: #8a2d2d;
+  --hq-error-soft: #b05a5a;
+  --hq-stat-minus: #8a2d2d;
+  --hq-stat-minus-hover: #9c3a3a;
+  --hq-stat-plus: #2f5a3a;
+  --hq-stat-plus-hover: #2e6b3f;
 
   /* Surface tokens for lists/grids */
-  --hq-surface-sunken: #111827;
-  --hq-surface-card: #1f2933;
+  --hq-surface-sunken: #efe3cd;
+  --hq-surface-card: #f6f1e8;
 
   /* Font tokens, mirroring treasure tracker */
   --hq-font-body: "Carter Sans W01", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",

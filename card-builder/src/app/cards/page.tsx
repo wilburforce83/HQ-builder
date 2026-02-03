@@ -9,7 +9,6 @@ import CardInspector from "@/components/CardInspector/CardInspector";
 import type { CardPreviewHandle } from "@/components/CardPreview";
 import EditorActionsToolbar from "@/components/EditorActionsToolbar";
 import HeaderWithTemplatePicker from "@/components/HeaderWithTemplatePicker";
-import MainFooter from "@/components/MainFooter";
 import { cardTemplatesById } from "@/data/card-templates";
 import { cardDataToCardRecordPatch } from "@/lib/card-record-mapper";
 import { createCard, updateCard } from "@/lib/cards-db";
@@ -133,7 +132,6 @@ function IndexPageInner() {
           />
         </aside>
       </main>
-      <MainFooter />
     </div>
   );
 }

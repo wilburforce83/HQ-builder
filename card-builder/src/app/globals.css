@@ -14,7 +14,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(230, 179, 90, 0.85) rgba(15, 15, 15, 0.8);
+  scrollbar-color: rgba(93, 74, 58, 0.7) rgba(247, 241, 232, 0.8);
 }
 
 *::-webkit-scrollbar {
@@ -23,24 +23,24 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(15, 15, 15, 0.8);
+  background: rgba(247, 241, 232, 0.8);
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(230, 179, 90, 0.85);
-  border: 3px solid rgba(15, 15, 15, 0.8);
+  background: rgba(93, 74, 58, 0.7);
+  border: 3px solid rgba(247, 241, 232, 0.8);
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(230, 179, 90, 0.95);
+  background: rgba(93, 74, 58, 0.85);
 }
 
 /* Themed Bootstrap overrides */
 
 .btn {
-  border-radius: 999px;
+  border-radius: 4px;
   font-family: var(--hq-font-inline);
   font-size: 0.9rem;
   font-weight: 600;
@@ -76,15 +76,58 @@ body {
   box-shadow: none !important;
 }
 
+.btn-outline-light,
+.btn-outline-secondary {
+  background-color: rgba(247, 241, 232, 0.95) !important;
+  border-color: #c7b8a2 !important;
+  color: #2b2b2b !important;
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus,
+.btn-outline-light:focus-visible,
+.btn-outline-light:active,
+.btn-outline-light.active,
+.show > .btn-outline-light.dropdown-toggle,
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus,
+.btn-outline-secondary:focus-visible,
+.btn-outline-secondary:active,
+.btn-outline-secondary.active,
+.show > .btn-outline-secondary.dropdown-toggle {
+  background-color: var(--hq-accent-soft) !important;
+  border-color: #b9a58a !important;
+  color: var(--hq-accent) !important;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+.btn-outline-danger {
+  background-color: rgba(247, 241, 232, 0.95) !important;
+  border-color: #b05a5a !important;
+  color: #8a2d2d !important;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus,
+.btn-outline-danger:focus-visible,
+.btn-outline-danger:active,
+.btn-outline-danger.active,
+.show > .btn-outline-danger.dropdown-toggle {
+  background-color: rgba(176, 90, 90, 0.18) !important;
+  border-color: #8a2d2d !important;
+  color: #8a2d2d !important;
+  box-shadow: 0 0 6px rgba(138, 45, 45, 0.3) !important;
+}
+
 .btn-outline-light.disabled,
 .btn-outline-light:disabled,
 .btn-outline-secondary.disabled,
 .btn-outline-secondary:disabled,
 .btn-outline-danger.disabled,
 .btn-outline-danger:disabled {
-  color: rgba(229, 231, 235, 0.5) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(93, 74, 58, 0.5) !important;
+  border-color: rgba(93, 74, 58, 0.25) !important;
+  background-color: rgba(247, 241, 232, 0.6) !important;
   opacity: 0.6;
   box-shadow: none !important;
 }
