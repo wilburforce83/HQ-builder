@@ -41,3 +41,4 @@ htmlcov/
 
 # Card builder generated assets
 card-builder/src/generated/
+db/hqbuilder.db
