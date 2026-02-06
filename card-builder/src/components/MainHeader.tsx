@@ -7,7 +7,6 @@ import styles from "@/app/page.module.css";
 import IconButton from "@/components/IconButton";
 import { useI18n } from "@/i18n/I18nProvider";
 
-import appLogo from "../../public/assets/apple-touch-icon.png";
 
 type MainHeaderProps = {
   hasTemplate: boolean;
@@ -37,14 +36,14 @@ export default function MainHeader({
       <div className={styles.headerLeft}>
         <div className={styles.headerTitleRow}>
           <Image
-            src={appLogo}
-            alt={t("app.title")}
+            src="/static/img/ui/logo.png"
+            alt="Quest Builder"
             className={styles.headerLogo}
             width={32}
             height={32}
             priority
           />
-          <span>{t("app.title")}</span>
+          <span>Card Creator</span>
         </div>
       </div>
       <div className={styles.headerRight}>
@@ -81,10 +80,6 @@ export default function MainHeader({
         >
           {t("actions.settings")}
         </IconButton>
-        <a href="/" className={`btn btn-outline-light btn-sm ${styles.headerNavLink}`}>
-          <ArrowLeft className={styles.icon} aria-hidden="true" />
-          Quest Builder
-        </a>
         <IconButton
           className="btn btn-outline-light btn-sm"
           icon={Upload}
@@ -94,6 +89,10 @@ export default function MainHeader({
         >
           {isImporting ? t("actions.importing") : t("actions.importData")}
         </IconButton>
+        <a href="/" className={`btn btn-outline-light btn-sm ${styles.headerNavLink}`}>
+          <ArrowLeft className={styles.icon} aria-hidden="true" />
+          Quest Builder
+        </a>
       </div>
     </header>
   );

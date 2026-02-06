@@ -8,6 +8,7 @@ function rowToQuest(row: any) {
   return {
     id: row.id,
     title: row.title,
+    campaign: row.campaign,
     author: row.author,
     story: row.story,
     notes: row.notes,
@@ -40,12 +41,13 @@ export async function POST(request: Request) {
   if (hasUserId.quests) {
     db.prepare(
       `INSERT OR REPLACE INTO quests (
-        id,user_id,title,author,story,notes,wandering_monster,data_json,created_at,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        id,user_id,title,campaign,author,story,notes,wandering_monster,data_json,created_at,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     ).run(
       id,
       DEFAULT_USER_ID,
       data.title ?? null,
+      data.campaign ?? null,
       data.author ?? null,
       data.story ?? null,
       data.notes ?? null,
@@ -57,11 +59,12 @@ export async function POST(request: Request) {
   } else {
     db.prepare(
       `INSERT OR REPLACE INTO quests (
-        id,title,author,story,notes,wandering_monster,data_json,created_at,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?)`,
+        id,title,campaign,author,story,notes,wandering_monster,data_json,created_at,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?)`,
     ).run(
       id,
       data.title ?? null,
+      data.campaign ?? null,
       data.author ?? null,
       data.story ?? null,
       data.notes ?? null,

@@ -98,6 +98,7 @@ function initDb() {
       id TEXT PRIMARY KEY NOT NULL,
       user_id INTEGER,
       title TEXT,
+      campaign TEXT,
       author TEXT,
       story TEXT,
       notes TEXT,
@@ -132,6 +133,7 @@ function initDb() {
   addColumn("cards", "user_id INTEGER", "user_id");
   addColumn("collections", "user_id INTEGER", "user_id");
   addColumn("quests", "user_id INTEGER", "user_id");
+  addColumn("quests", "campaign TEXT", "campaign");
 }
 
 initDb();

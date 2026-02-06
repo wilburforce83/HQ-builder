@@ -79,7 +79,11 @@ export default function MonsterIconField({ label }: MonsterIconFieldProps) {
         onClose={picker.close}
         mode="select"
         title="Icon Library"
-        categoryFilter="icon"
+        assetFilter={(asset) => {
+          if (asset.category === "furniture") return false;
+          if (asset.category === "icon") return true;
+          return asset.gridW === 1 && asset.gridH === 1;
+        }}
         uploadCategory="icon"
         requireIconMeta
         iconTypeOptions={ICON_TYPE_OPTIONS}

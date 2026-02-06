@@ -32,6 +32,7 @@ type AssetsModalProps = {
   title?: string;
   categoryFilter?: string;
   excludeCategories?: string[];
+  assetFilter?: (asset: AssetRecord) => boolean;
   uploadCategory?: string;
   requireIconMeta?: boolean;
   iconTypeOptions?: readonly string[];
@@ -86,6 +87,7 @@ export default function AssetsModal({
   title,
   categoryFilter,
   excludeCategories,
+  assetFilter,
   uploadCategory,
   requireIconMeta,
   iconTypeOptions: iconTypeOptionsProp,
@@ -186,6 +188,7 @@ export default function AssetsModal({
       const category = asset.category ?? null;
       if (categoryFilter && category !== categoryFilter) return false;
       if (excludeCategories && category && excludeCategories.includes(category)) return false;
+      if (assetFilter && !assetFilter(asset)) return false;
       return true;
     });
 
@@ -198,6 +201,57 @@ export default function AssetsModal({
       return false;
     });
   })();
+
+  const getImageDimensions = async (file: File) => {
+    const isSvg =
+      file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+    if (isSvg) {
+      try {
+        const text = await file.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, "image/svg+xml");
+        const svg = doc.querySelector("svg");
+        const widthAttr = svg?.getAttribute("width");
+        const heightAttr = svg?.getAttribute("height");
+        const parseLength = (value: string | null) => {
+          if (!value) return 0;
+          const num = Number.parseFloat(value);
+          return Number.isFinite(num) ? num : 0;
+        };
+        let width = parseLength(widthAttr);
+        let height = parseLength(heightAttr);
+        if (!width || !height) {
+          const viewBox = svg?.getAttribute("viewBox");
+          if (viewBox) {
+            const parts = viewBox.split(/[ ,]+/).map((part) => Number.parseFloat(part));
+            if (parts.length === 4) {
+              width = width || parts[2] || 0;
+              height = height || parts[3] || 0;
+            }
+          }
+        }
+        if (!width || !height) {
+          width = width || 256;
+          height = height || 256;
+        }
+        return { width, height };
+      } catch {
+        return { width: 256, height: 256 };
+      }
+    }
+
+    const url = URL.createObjectURL(file);
+    const probe = new Image();
+    probe.src = url;
+    await new Promise<void>((resolve, reject) => {
+      probe.onload = () => resolve();
+      probe.onerror = () => reject(new Error("Failed to load image"));
+    });
+    const width = probe.naturalWidth || 0;
+    const height = probe.naturalHeight || 0;
+    URL.revokeObjectURL(url);
+    return { width, height };
+  };
 
   const handleConfirmDelete = async (ids: string[]) => {
     try {
@@ -387,7 +441,9 @@ export default function AssetsModal({
           }
           continue;
         }
-        if (!file.type.startsWith("image/")) {
+        const isSvg =
+          file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+        if (!file.type.startsWith("image/") && !isSvg) {
           // Basic type guard; more detailed validation can be added later.
           // eslint-disable-next-line no-console
           console.warn("[AssetsModal] Unsupported file type", file.type);
@@ -420,25 +476,17 @@ export default function AssetsModal({
                 : prev,
             );
           }
-          const url = URL.createObjectURL(file);
-          const probe = new Image();
-          probe.src = url;
-
-          await new Promise<void>((resolve, reject) => {
-            probe.onload = () => resolve();
-            probe.onerror = () => reject(new Error("Failed to load image"));
-          });
-
-          const width = probe.naturalWidth;
-          const height = probe.naturalHeight;
-          URL.revokeObjectURL(url);
+          const { width, height } = await getImageDimensions(file);
 
           const id = generateId();
           const resolvedName = finalNameByIndex.get(index) ?? file.name;
+          const mimeType =
+            file.type ||
+            (file.name.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/png");
 
           await addAsset(id, file, {
             name: resolvedName,
-            mimeType: file.type,
+            mimeType,
             width,
             height,
             category: isIconUpload ? "icon" : uploadCategory,
@@ -473,7 +521,7 @@ export default function AssetsModal({
             addToIndex(hash, {
               id,
               name: resolvedName,
-              mimeType: file.type,
+              mimeType,
               width,
               height,
               createdAt: Date.now(),
@@ -626,7 +674,7 @@ export default function AssetsModal({
             ref={fileInputRef}
             type="file"
             multiple={!isIconUpload}
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
             style={{ display: "none" }}
             onChange={async (event) => {
               const files = Array.from(event.target.files ?? []);

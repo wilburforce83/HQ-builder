@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FileDown, FilePlus, Save, Trash2 } from "lucide-react";
 import boardData from "@/data/boardData";
 import { formatIconLabel, ICON_TYPE_OPTIONS } from "@/lib/icon-assets";
 import styles from "./quest.module.css";
@@ -32,7 +33,6 @@ type PaletteItem = {
   layer: "tile" | "furniture" | "monster";
   source: "builtin" | "custom";
   isIcon?: boolean;
-  iconTint?: "black" | "blue";
 };
 
 type PlacedItem = {
@@ -52,6 +52,7 @@ type PlacedItem = {
 type QuestRecord = {
   id: string;
   title?: string | null;
+  campaign?: string | null;
   author?: string | null;
   story?: string | null;
   notes?: string | null;
@@ -82,9 +83,9 @@ const builtInAssets: PaletteItem[] = [
   { id: "furniture-fireplace", name: "Fireplace", url: "/static/img/Furniture/fireplace.svg", category: "furniture", gridW: 3, gridH: 1, layer: "furniture", source: "builtin" },
   { id: "furniture-weapon-rack", name: "Weapon Rack", url: "/static/img/Furniture/weapon_rack.svg", category: "furniture", gridW: 3, gridH: 1, layer: "furniture", source: "builtin" },
   { id: "furniture-stairs", name: "Stairs", url: "/static/img/Furniture/stairs.svg", category: "furniture", gridW: 2, gridH: 2, layer: "furniture", source: "builtin" },
-  { id: "furniture-table", name: "Table", url: "/static/img/Furniture/table.svg", category: "furniture", gridW: 2, gridH: 3, layer: "furniture", source: "builtin" },
-  { id: "furniture-alchemists-desk", name: "Alchemist Desk", url: "/static/img/Furniture/alchemists_desk.svg", category: "furniture", gridW: 2, gridH: 3, layer: "furniture", source: "builtin" },
-  { id: "furniture-torture-rack", name: "Torture Rack", url: "/static/img/Furniture/torture_rack.svg", category: "furniture", gridW: 2, gridH: 3, layer: "furniture", source: "builtin" },
+  { id: "furniture-table", name: "Table", url: "/static/img/Furniture/table.svg", category: "furniture", gridW: 3, gridH: 2, layer: "furniture", source: "builtin" },
+  { id: "furniture-alchemists-desk", name: "Alchemist Desk", url: "/static/img/Furniture/alchemists_desk.svg", category: "furniture", gridW: 3, gridH: 2, layer: "furniture", source: "builtin" },
+  { id: "furniture-torture-rack", name: "Torture Rack", url: "/static/img/Furniture/torture_rack.svg", category: "furniture", gridW: 3, gridH: 2, layer: "furniture", source: "builtin" },
   { id: "furniture-tomb", name: "Tomb", url: "/static/img/Furniture/tomb.svg", category: "furniture", gridW: 2, gridH: 3, layer: "furniture", source: "builtin" },
   { id: "furniture-sorcerers-table", name: "Sorcerer Table", url: "/static/img/Furniture/sorcerers_table.svg", category: "furniture", gridW: 2, gridH: 3, layer: "furniture", source: "builtin" },
   { id: "furniture-throne", name: "Throne", url: "/static/img/Furniture/throne.svg", category: "furniture", gridW: 1, gridH: 1, layer: "furniture", source: "builtin" },
@@ -145,66 +146,6 @@ function displayCategoryLabel(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-type TintColor = { r: number; g: number; b: number };
-const ICON_TINTS: Record<"black" | "blue", TintColor> = {
-  black: { r: 20, g: 20, b: 20 },
-  blue: { r: 40, g: 80, b: 180 },
-};
-
-async function buildTintedIconUrl(
-  url: string,
-  tint: "black" | "blue",
-): Promise<string> {
-  if (typeof window === "undefined") return url;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return url;
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = objectUrl;
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("Failed to load icon"));
-    });
-
-    const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth || 1;
-    canvas.height = img.naturalHeight || 1;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      URL.revokeObjectURL(objectUrl);
-      return url;
-    }
-    ctx.drawImage(img, 0, 0);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    const { r, g, b } = ICON_TINTS[tint];
-    const whiteThreshold = 230;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3];
-      if (alpha === 0) continue;
-      const red = data[i];
-      const green = data[i + 1];
-      const blue = data[i + 2];
-      if (red >= whiteThreshold && green >= whiteThreshold && blue >= whiteThreshold) {
-        continue;
-      }
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    const tintedUrl = canvas.toDataURL();
-    URL.revokeObjectURL(objectUrl);
-    return tintedUrl;
-  } catch {
-    return url;
-  }
-}
-
 function spanForRotation(baseW: number, baseH: number, rotation: number) {
   if (rotation % 180 === 0) {
     return { w: baseW, h: baseH };
@@ -223,6 +164,55 @@ function overlaps(a: { x: number; y: number; w: number; h: number }, b: { x: num
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+async function getImageDimensionsFromFile(file: File) {
+  const isSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+  if (isSvg) {
+    try {
+      const text = await file.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, "image/svg+xml");
+      const svg = doc.querySelector("svg");
+      const widthAttr = svg?.getAttribute("width");
+      const heightAttr = svg?.getAttribute("height");
+      const parseLength = (value: string | null) => {
+        if (!value) return 0;
+        const num = Number.parseFloat(value);
+        return Number.isFinite(num) ? num : 0;
+      };
+      let width = parseLength(widthAttr);
+      let height = parseLength(heightAttr);
+      if (!width || !height) {
+        const viewBox = svg?.getAttribute("viewBox");
+        if (viewBox) {
+          const parts = viewBox.split(/[ ,]+/).map((part) => Number.parseFloat(part));
+          if (parts.length === 4) {
+            width = width || parts[2] || 0;
+            height = height || parts[3] || 0;
+          }
+        }
+      }
+      if (!width || !height) {
+        width = width || 256;
+        height = height || 256;
+      }
+      return { width, height };
+    } catch {
+      return { width: 256, height: 256 };
+    }
+  }
+
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await new Promise((resolve) => {
+    img.onload = resolve;
+    img.onerror = resolve;
+  });
+  const width = img.naturalWidth || 0;
+  const height = img.naturalHeight || 0;
+  URL.revokeObjectURL(img.src);
+  return { width, height };
+}
+
 export default function QuestBuilderPage() {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const mapColumnRef = useRef<HTMLDivElement | null>(null);
@@ -233,13 +223,12 @@ export default function QuestBuilderPage() {
   const [wanderingIcon, setWanderingIcon] = useState<{ assetId: string; source: "builtin" | "custom" } | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [quests, setQuests] = useState<QuestRecord[]>([]);
-  const [assetRatios, setAssetRatios] = useState<Record<string, number>>({});
   const [currentQuestId, setCurrentQuestId] = useState<string | null>(null);
   const [paletteSearch, setPaletteSearch] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const [tintedIcons, setTintedIcons] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     title: "",
+    campaign: "",
     author: "",
     story: "",
     notes: "",
@@ -269,7 +258,6 @@ export default function QuestBuilderPage() {
     return assets.map((asset) => {
       if (asset.category === "icon") {
         const iconCategory = iconCategoryForType(asset.iconType);
-        const tint = iconCategory === "npc" ? "blue" : "black";
         return {
           id: asset.id,
           name: formatIconLabel(asset),
@@ -280,7 +268,6 @@ export default function QuestBuilderPage() {
           layer: "monster",
           source: "custom",
           isIcon: true,
-          iconTint: tint,
         };
       }
 
@@ -296,27 +283,6 @@ export default function QuestBuilderPage() {
       };
     });
   }, [assets]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const iconsToProcess = customAssets.filter(
-      (item) => item.isIcon && !tintedIcons[item.id] && item.iconTint,
-    );
-
-    if (iconsToProcess.length === 0) return () => {};
-
-    (async () => {
-      for (const icon of iconsToProcess) {
-        const tinted = await buildTintedIconUrl(icon.url, icon.iconTint ?? "black");
-        if (cancelled) return;
-        setTintedIcons((prev) => (prev[icon.id] ? prev : { ...prev, [icon.id]: tinted }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [customAssets, tintedIcons]);
 
   useEffect(() => {
     const mapColumn = mapColumnRef.current;
@@ -363,7 +329,7 @@ export default function QuestBuilderPage() {
   }, [customAssets]);
 
   const paletteSections = useMemo(() => {
-    const entries = Object.entries(paletteByCategory);
+    const entries = Object.entries(paletteByCategory).filter(([category]) => category !== "custom");
     const order = [
       "monster",
       "hero",
@@ -378,7 +344,6 @@ export default function QuestBuilderPage() {
       "item",
       "trap",
       "objective",
-      "custom",
       "other",
       "icon",
     ];
@@ -535,6 +500,7 @@ export default function QuestBuilderPage() {
     const payload = {
       id: currentQuestId ?? undefined,
       title: form.title,
+      campaign: form.campaign,
       author: form.author,
       story: form.story,
       notes: form.notes,
@@ -564,6 +530,7 @@ export default function QuestBuilderPage() {
     setCurrentQuestId(quest.id);
     setForm({
       title: quest.title ?? "",
+      campaign: quest.campaign ?? "",
       author: quest.author ?? "",
       story: quest.story ?? "",
       notes: quest.notes ?? "",
@@ -581,7 +548,7 @@ export default function QuestBuilderPage() {
   const handleNew = () => {
     setCurrentQuestId(null);
     setItems([]);
-    setForm({ title: "", author: "", story: "", notes: "", wanderingMonster: "" });
+    setForm({ title: "", campaign: "", author: "", story: "", notes: "", wanderingMonster: "" });
     setWanderingIcon(null);
   };
 
@@ -592,6 +559,40 @@ export default function QuestBuilderPage() {
     if (currentQuestId === id) {
       handleNew();
     }
+  };
+
+  const handleExportPdf = async () => {
+    const payload = {
+      title: form.title,
+      campaign: form.campaign,
+      author: form.author,
+      story: form.story,
+      notes: form.notes,
+      wanderingMonster: form.wanderingMonster,
+      data: { items, wandering: wanderingIcon },
+    };
+
+    const res = await fetch("/api/quests/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      alert("Failed to export PDF");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTitle = (form.title || "quest").toLowerCase().replace(/[^a-z0-9_-]+/gi, "_");
+    link.href = url;
+    link.download = `${safeTitle}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -606,19 +607,16 @@ export default function QuestBuilderPage() {
       return;
     }
 
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    await new Promise((resolve) => {
-      img.onload = resolve;
-      img.onerror = resolve;
-    });
+    const { width, height } = await getImageDimensionsFromFile(file);
+    const mimeType =
+      file.type || (file.name.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/png");
 
     const formData = new FormData();
     formData.append("file", file, file.name);
     formData.append("name", file.name);
-    formData.append("mimeType", file.type || "image/png");
-    formData.append("width", String(img.naturalWidth || 0));
-    formData.append("height", String(img.naturalHeight || 0));
+    formData.append("mimeType", mimeType);
+    formData.append("width", String(width));
+    formData.append("height", String(height));
     formData.append("category", upload.category);
     formData.append("gridW", String(isIconUpload ? 1 : upload.gridW));
     formData.append("gridH", String(isIconUpload ? 1 : upload.gridH));
@@ -626,8 +624,6 @@ export default function QuestBuilderPage() {
       formData.append("iconType", upload.iconType);
       formData.append("iconName", upload.iconName.trim());
     }
-
-    URL.revokeObjectURL(img.src);
 
     const res = await fetch("/api/assets", { method: "POST", body: formData });
     if (!res.ok) {
@@ -664,21 +660,35 @@ export default function QuestBuilderPage() {
   }, [customAssets]);
 
   const wanderingPalette = wanderingIcon ? itemById.get(wanderingIcon.assetId) : null;
-  const getPaletteUrl = (item: PaletteItem) =>
-    item.isIcon ? tintedIcons[item.id] ?? item.url : item.url;
+  const wanderingLabel = wanderingPalette?.name ?? form.wanderingMonster ?? "";
+  const getPaletteUrl = (item: PaletteItem) => item.url;
 
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <img className={styles.logo} src="/static/img/ui/logo.png" alt="HeroQuest" />
         <strong>Quest Builder</strong>
-        <button type="button" onClick={handleNew}>New Quest</button>
-        <button type="button" onClick={handleSave}>Save Quest</button>
-        <button type="button" onClick={() => window.print()}>Print</button>
-        <button type="button" onClick={handleDeleteSelected}>Delete Selected Item</button>
-        <a href="/cards" className={styles.toolbarLink}>
-          Card Builder →
-        </a>
+        <div className={styles.toolbarActions}>
+          <button type="button" onClick={handleNew}>
+            <FilePlus className={styles.toolbarButtonIcon} aria-hidden="true" />
+            New Quest
+          </button>
+          <button type="button" onClick={handleSave}>
+            <Save className={styles.toolbarButtonIcon} aria-hidden="true" />
+            Save Quest
+          </button>
+          <button type="button" onClick={handleExportPdf}>
+            <FileDown className={styles.toolbarButtonIcon} aria-hidden="true" />
+            Export PDF
+          </button>
+          <button type="button" onClick={handleDeleteSelected}>
+            <Trash2 className={styles.toolbarButtonIcon} aria-hidden="true" />
+            Delete Selected Item
+          </button>
+          <a href="/cards" className={styles.toolbarLink}>
+            Card Builder →
+          </a>
+        </div>
       </div>
       <div className={styles.layout}>
         <aside className={`${styles.sidebar} ${styles.sidebarLeft}`}>
@@ -738,7 +748,7 @@ export default function QuestBuilderPage() {
           <div>
             <div className={styles.sectionTitle}>Upload Custom Icon</div>
             <form onSubmit={handleUpload} className={styles.formGroup}>
-              <input type="file" accept="image/png" />
+              <input type="file" accept="image/png,image/svg+xml" />
               <label>Category</label>
               <select
                 value={upload.category}
@@ -834,12 +844,12 @@ export default function QuestBuilderPage() {
               const palette = itemById.get(item.assetId);
               if (!palette) return null;
               const span = getSpan(item);
-              const containerRatio = span.w / span.h;
-              const intrinsicRatio = assetRatios[palette.id] ?? containerRatio;
-              const rotationMod = item.rotation % 180;
-              const effectiveRatio = rotationMod === 0 ? intrinsicRatio : 1 / intrinsicRatio;
-              const rawScale = Math.max(effectiveRatio / containerRatio, containerRatio / effectiveRatio);
-              const scale = Number.isFinite(rawScale) ? rawScale : 1;
+              const baseRatio = item.baseW / item.baseH;
+              const rotateScale =
+                item.rotation % 180 === 0
+                  ? 1
+                  : Math.max(baseRatio, 1 / baseRatio);
+              const scale = Number.isFinite(rotateScale) && rotateScale > 0 ? rotateScale : 1;
               const style: React.CSSProperties = {
                 gridColumn: `${item.x + 1} / span ${span.w}`,
                 gridRow: `${item.y + 1} / span ${span.h}`,
@@ -856,14 +866,6 @@ export default function QuestBuilderPage() {
                     <img
                       src={getPaletteUrl(palette)}
                       alt={palette.name}
-                      onLoad={(event) => {
-                        const target = event.currentTarget;
-                        const ratio =
-                          target.naturalWidth && target.naturalHeight
-                            ? target.naturalWidth / target.naturalHeight
-                            : 1;
-                        setAssetRatios((prev) => (prev[palette.id] ? prev : { ...prev, [palette.id]: ratio }));
-                      }}
                       style={{ transform: `rotate(${item.rotation}deg) scale(${scale})` }}
                     />
                   </div>
@@ -882,6 +884,12 @@ export default function QuestBuilderPage() {
               className={styles.notesSingleLine}
               value={form.title}
               onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+            />
+            <input
+              placeholder="Campaign"
+              className={styles.notesSingleLine}
+              value={form.campaign}
+              onChange={(e) => setForm((prev) => ({ ...prev, campaign: e.target.value }))}
             />
             <input
               placeholder="Author"

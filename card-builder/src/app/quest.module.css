@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f6f1e8;
+  background: transparent;
   color: #2b2b2b;
 }
 
@@ -65,6 +65,9 @@
   border-radius: 4px;
   box-shadow: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .toolbar button:hover {
@@ -72,7 +75,6 @@
 }
 
 .toolbarLink {
-  margin-left: auto;
   text-decoration: none;
   border: 1px solid #c7b8a2;
   background: rgba(247, 241, 232, 0.95);
@@ -93,9 +95,23 @@
   background: #d9c49e;
 }
 
+.toolbarActions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toolbarButtonIcon {
+  width: 14px;
+  height: 14px;
+}
+
 .layout {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 12px;
@@ -117,28 +133,26 @@
 .sidebarLeft {
   order: 1;
   flex: 0 0 255px;
+  height: calc(100vh - 150px);
   position: relative;
   z-index: 2;
   border: clamp(6px, 0.9vw, 12px) solid #000;
   border-image: url("/static/img/decorations/border.png") 30 / clamp(8px, 1vw, 14px) stretch;
-  background-color: #f6f1e8;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)),
-    url("/static/img/decorations/background.png");
+  background-image: url("/static/img/decorations/background.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-attachment: fixed;
   background-position: top left;
-  background-blend-mode: screen;
   padding: 10px;
   overflow-y: auto;
-  max-height: calc(100vh - 150px);
+  max-height: none;
   font-family: var(--hq-font-body);
 }
 
 .sidebarRight {
   order: 3;
-  flex: 0 0 320px;
+  flex: 0 0 400px;
+  height: calc(100vh - 150px);
   position: relative;
   z-index: 2;
   border: clamp(6px, 0.9vw, 12px) solid #000;
@@ -148,7 +162,7 @@
   background-size: 100% 100%;
   padding: 12px;
   overflow-y: auto;
-  max-height: calc(100vh - 150px);
+  max-height: none;
 }
 
 .sectionTitle {
@@ -290,7 +304,8 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
+  align-items: flex-start;
   overflow: auto;
   order: 2;
   position: relative;
@@ -501,11 +516,11 @@
 @media print {
   @page {
     margin: 0.5cm;
-    size: A4 landscape;
+    size: A4 portrait;
   }
 
   .page {
-    background: #fff;
+    background: transparent;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -528,16 +543,14 @@
     background: transparent;
     max-height: none;
     overflow: visible;
-    width: 70%;
+    width: 90%;
     margin: 0 auto;
-    page-break-before: always;
-    break-before: page;
   }
 
   .gridWrapper {
     margin: 0 auto;
-    --cell-size: 18px !important;
-    --hq-border: 1.5vw;
+    --cell-size: 16px !important;
+    --hq-border: 1.2vw;
     page-break-inside: avoid;
   }
 
@@ -545,8 +558,6 @@
     width: 100%;
     display: flex;
     justify-content: center;
-    page-break-after: always;
-    break-after: page;
     overflow: visible;
   }
 

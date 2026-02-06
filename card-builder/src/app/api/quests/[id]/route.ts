@@ -8,6 +8,7 @@ function rowToQuest(row: any) {
   return {
     id: row.id,
     title: row.title,
+    campaign: row.campaign,
     author: row.author,
     story: row.story,
     notes: row.notes,

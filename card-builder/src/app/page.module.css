@@ -158,7 +158,7 @@
   justify-content: stretch;
   gap: 1rem;
   padding: 1rem;
-  background: #f6f1e8;
+  background: transparent;
 }
 
 .templateSidebar {
