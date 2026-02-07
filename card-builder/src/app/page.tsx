@@ -47,6 +47,8 @@ type PlacedItem = {
   spanH?: number;
   rotation: number;
   layer: "tile" | "furniture" | "monster";
+  offsetX?: number;
+  offsetY?: number;
 };
 
 type QuestRecord = {
@@ -413,8 +415,28 @@ export default function QuestBuilderPage() {
     const cellSize = Number.isFinite(parsedCellSize) ? parsedCellSize : rect.width / columns;
     const borderLeft = gridBase ? Number.parseFloat(getComputedStyle(gridBase).borderLeftWidth) : 0;
     const borderTop = gridBase ? Number.parseFloat(getComputedStyle(gridBase).borderTopWidth) : 0;
-    const x = Math.floor((event.clientX - rect.left - borderLeft) / cellSize);
-    const y = Math.floor((event.clientY - rect.top - borderTop) / cellSize);
+    const rawX = (event.clientX - rect.left - borderLeft) / cellSize;
+    const rawY = (event.clientY - rect.top - borderTop) / cellSize;
+    const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+    const snapCell = (raw: number, max: number) => clamp(Math.round(raw - 0.5), 0, max - 1);
+    const snapDoor = (rawXDoor: number, rawYDoor: number) => {
+      const lineX = clamp(Math.round(rawXDoor), 1, columns - 1);
+      const lineY = clamp(Math.round(rawYDoor), 1, rows - 1);
+      const cellX = snapCell(rawXDoor, columns);
+      const cellY = snapCell(rawYDoor, rows);
+      const distX = Math.abs(rawXDoor - Math.round(rawXDoor));
+      const distY = Math.abs(rawYDoor - Math.round(rawYDoor));
+      if (distX <= distY) {
+        return { x: lineX - 1, y: cellY, offsetX: 0.5, offsetY: 0 };
+      }
+      return { x: cellX, y: lineY - 1, offsetX: 0, offsetY: 0.5 };
+    };
+    const snapped = {
+      x: clamp(Math.floor(rawX), 0, columns - 1),
+      y: clamp(Math.floor(rawY), 0, rows - 1),
+    };
+    const x = snapped.x;
+    const y = snapped.y;
 
     if (x < 0 || y < 0 || x >= columns || y >= rows) return;
 
@@ -422,49 +444,82 @@ export default function QuestBuilderPage() {
       setItems((prev) => {
         const current = prev.find((item) => item.id === payload.id);
         if (!current) return prev;
+        const isDoor = current.assetId === "furniture-door";
+        const doorSnap = isDoor ? snapDoor(rawX, rawY) : null;
+        const nextOffsetX = isDoor ? doorSnap!.offsetX : 0;
+        const nextOffsetY = isDoor ? doorSnap!.offsetY : 0;
         const span = getSpan(current);
-        if (x + span.w > columns || y + span.h > rows) return prev;
+        const nextX = isDoor ? doorSnap!.x : x;
+        const nextY = isDoor ? doorSnap!.y : y;
+        if (nextX + span.w > columns || nextY + span.h > rows) return prev;
+        if (
+          isDoor &&
+          ((nextOffsetX > 0 && nextX + span.w >= columns) || (nextOffsetY > 0 && nextY + span.h >= rows))
+        ) {
+          return prev;
+        }
 
         const overlapsExisting = prev.some((item) => {
           if (item.id === current.id || item.layer !== current.layer) return false;
           const spanOther = getSpan(item);
           return overlaps(
             { x: item.x, y: item.y, w: spanOther.w, h: spanOther.h },
-            { x, y, w: span.w, h: span.h },
+            { x: nextX, y: nextY, w: span.w, h: span.h },
           );
         });
 
         if (overlapsExisting) return prev;
 
-        return prev.map((item) => (item.id === current.id ? { ...item, x, y } : item));
+        return prev.map((item) =>
+          item.id === current.id
+            ? { ...item, x: nextX, y: nextY, offsetX: nextOffsetX, offsetY: nextOffsetY }
+            : item,
+        );
       });
       setSelectedId(payload.id);
       return;
     }
 
     if (!("assetId" in payload)) return;
-    if (x + payload.gridW > columns || y + payload.gridH > rows) return;
+    const isDoor = payload.assetId === "furniture-door";
+    const doorSnap = isDoor ? snapDoor(rawX, rawY) : null;
+    const offsetX = isDoor ? doorSnap!.offsetX : 0;
+    const offsetY = isDoor ? doorSnap!.offsetY : 0;
+    const newX = isDoor ? doorSnap!.x : x;
+    const newY = isDoor ? doorSnap!.y : y;
+    if (newX + payload.gridW > columns || newY + payload.gridH > rows) return;
+    if (
+      isDoor &&
+      ((offsetX > 0 && newX + payload.gridW >= columns) || (offsetY > 0 && newY + payload.gridH >= rows))
+    ) {
+      return;
+    }
 
     const id = crypto.randomUUID();
     const newItem: PlacedItem = {
       id,
       assetId: payload.assetId,
       source: payload.source,
-      x,
-      y,
+      x: newX,
+      y: newY,
       baseW: payload.gridW,
       baseH: payload.gridH,
       spanW: payload.gridW,
       spanH: payload.gridH,
       rotation: 0,
       layer: payload.layer,
+      offsetX,
+      offsetY,
     };
 
     setItems((prev) => {
       const filtered = prev.filter((item) => {
         if (item.layer !== newItem.layer) return true;
         const span = getSpan(item);
-        return !overlaps({ x: item.x, y: item.y, w: span.w, h: span.h }, { x, y, w: payload.gridW, h: payload.gridH });
+        return !overlaps(
+          { x: item.x, y: item.y, w: span.w, h: span.h },
+          { x: newX, y: newY, w: payload.gridW, h: payload.gridH },
+        );
       });
       return [...filtered, newItem];
     });
@@ -539,7 +594,13 @@ export default function QuestBuilderPage() {
     const loadedItems =
       quest.data?.items?.map((item) => {
         const span = spanForRotation(item.baseW, item.baseH, item.rotation ?? 0);
-        return { ...item, spanW: span.w, spanH: span.h };
+        return {
+          ...item,
+          spanW: span.w,
+          spanH: span.h,
+          offsetX: item.assetId === "furniture-door" ? item.offsetX ?? 0.5 : item.offsetX ?? 0,
+          offsetY: item.assetId === "furniture-door" ? item.offsetY ?? 0 : item.offsetY ?? 0,
+        };
       }) ?? [];
     setItems(loadedItems);
     setWanderingIcon(quest.data?.wandering ?? null);
@@ -850,9 +911,12 @@ export default function QuestBuilderPage() {
                   ? 1
                   : Math.max(baseRatio, 1 / baseRatio);
               const scale = Number.isFinite(rotateScale) && rotateScale > 0 ? rotateScale : 1;
+              const offsetX = item.offsetX ?? 0;
+              const offsetY = item.offsetY ?? 0;
               const style: React.CSSProperties = {
                 gridColumn: `${item.x + 1} / span ${span.w}`,
                 gridRow: `${item.y + 1} / span ${span.h}`,
+                transform: `translate(${offsetX * 100}%, ${offsetY * 100}%)`,
                 zIndex: item.layer === "monster" ? 3 : item.layer === "furniture" ? 2 : 1,
               };
               return (

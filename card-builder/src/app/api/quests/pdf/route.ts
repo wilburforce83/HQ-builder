@@ -18,6 +18,8 @@ type PlacedItem = {
   spanH?: number;
   rotation: number;
   layer: "tile" | "furniture" | "monster";
+  offsetX?: number;
+  offsetY?: number;
 };
 
 type QuestPayload = {
@@ -130,7 +132,7 @@ export async function POST(request: Request) {
           if (cell.b.includes("r")) classes.push("borderRight");
           if (cell.b.includes("t")) classes.push("borderTop");
           if (cell.b.includes("b")) classes.push("borderBottom");
-          return `<div class=\"${classes.join(" ")}\" data-row=\"${rowIndex}\" data-col=\"${colIndex}\"></div>`;
+          return `<div class="${classes.join(" ")}" data-row="${rowIndex}" data-col="${colIndex}"></div>`;
         })
         .join(""),
     )
@@ -150,7 +152,11 @@ export async function POST(request: Request) {
       const baseRatio = item.baseW / item.baseH;
       const rotateScale = rotation % 180 === 0 ? 1 : Math.max(baseRatio, 1 / baseRatio);
       const scale = Number.isFinite(rotateScale) && rotateScale > 0 ? rotateScale : 1;
-      return `<div class=\"item\" style=\"grid-column:${item.x + 1} / span ${span.w}; grid-row:${item.y + 1} / span ${span.h};\">\n  <img src=\"${absUrl}\" alt=\"\" style=\"transform: rotate(${rotation}deg) scale(${scale});\" />\n</div>`;
+      const offsetX = item.offsetX ?? (item.assetId === "furniture-door" ? 0.5 : 0);
+      const offsetY = item.offsetY ?? (item.assetId === "furniture-door" ? 0 : 0);
+      return `<div class="item" style="grid-column:${item.x + 1} / span ${span.w}; grid-row:${item.y + 1} / span ${span.h}; transform: translate(${offsetX * 100}%, ${offsetY * 100}%);">
+  <img src="${absUrl}" alt="" style="transform: rotate(${rotation}deg) scale(${scale});" />
+</div>`;
     })
     .join("");
 
