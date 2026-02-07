@@ -199,7 +199,23 @@ async function buildExportObject(
 
   const assets: AssetRecordExportV1[] = [];
   for (const value of rawAssets) {
-    const { id, name, mimeType, width, height, createdAt, blob } = value;
+    const {
+      id,
+      name,
+      mimeType,
+      width,
+      height,
+      createdAt,
+      category,
+      gridW,
+      gridH,
+      ratioW,
+      ratioH,
+      paddingPct,
+      iconType,
+      iconName,
+      blob,
+    } = value;
 
     if (blob instanceof Blob) {
       try {
@@ -211,6 +227,14 @@ async function buildExportObject(
           width,
           height,
           createdAt,
+          category,
+          gridW,
+          gridH,
+          ratioW,
+          ratioH,
+          paddingPct,
+          iconType,
+          iconName,
           dataUrl,
         });
       } catch {
@@ -330,6 +354,9 @@ async function applyBackupObject(
           category: assetExport.category ?? undefined,
           gridW: assetExport.gridW ?? undefined,
           gridH: assetExport.gridH ?? undefined,
+          ratioW: assetExport.ratioW ?? undefined,
+          ratioH: assetExport.ratioH ?? undefined,
+          paddingPct: assetExport.paddingPct ?? undefined,
           iconType: assetExport.iconType ?? undefined,
           iconName: assetExport.iconName ?? undefined,
         });

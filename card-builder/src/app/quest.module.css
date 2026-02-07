@@ -467,30 +467,6 @@
   object-fit: contain;
 }
 
-.questList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.questList button {
-  border: 1px solid #c7b8a2;
-  padding: 6px;
-  background: rgba(247, 241, 232, 0.95);
-  text-align: left;
-  cursor: pointer;
-}
-
-.questList button:hover {
-  background: #f6e7ce;
-}
-
-.savedQuests {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 @media (max-width: 980px) {
   .layout {
     flex-direction: column;
@@ -581,7 +557,4 @@
     page-break-inside: avoid;
   }
 
-  .savedQuests {
-    display: none;
-  }
 }

@@ -533,6 +533,104 @@
   flex-direction: column;
 }
 
+.savedQuestsPopover {
+  width: min(780px, 100% - 2rem);
+  min-height: 22rem;
+  height: min(640px, calc(100vh - 6rem));
+  max-height: calc(100vh - 6rem);
+}
+
+.savedQuestsPopover :global(.modal-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.savedQuestsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.savedQuestsSearch {
+  min-width: 180px;
+}
+
+.savedQuestsCount {
+  font-size: 0.8rem;
+  color: #6b5b4b;
+}
+
+.savedQuestsList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 6px;
+  border: 1px dashed #c7b8a2;
+  background: rgba(247, 241, 232, 0.6);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.savedQuestsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(247, 241, 232, 0.85);
+}
+
+.savedQuestsRowActive {
+  border-color: #e07a2f;
+  box-shadow: inset 0 0 0 1px rgba(224, 122, 47, 0.25);
+}
+
+.savedQuestsMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.savedQuestsTitle {
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedQuestsSubtitle {
+  font-size: 0.75rem;
+  color: #6b5b4b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedQuestsActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.savedQuestsEmpty {
+  color: #6b5b4b;
+  font-size: 0.85rem;
+  padding: 0.75rem;
+  text-align: center;
+}
+
 .templatePopoverHeader {
   margin-bottom: 0.75rem;
   display: flex;
@@ -750,6 +848,143 @@
   font-size: 0.85rem;
   overflow: auto;
   margin-bottom: 0;
+}
+
+.questAssetsLayout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(260px, 320px);
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.questAssetsDetails {
+  border-radius: 6px;
+  border: 1px solid #c7b8a2;
+  background: rgba(247, 241, 232, 0.85);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.questAssetsPreview {
+  display: flex;
+  justify-content: center;
+}
+
+.questAssetsPreviewFrame {
+  width: 120px;
+  height: 120px;
+  border-radius: 6px;
+  border: 1px dashed #c7b8a2;
+  background: rgba(247, 241, 232, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.questAssetsPreviewFrame img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  transform-origin: center;
+}
+
+.questAssetsFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.questAssetsRatioRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.questAssetsRatioSeparator {
+  font-weight: 600;
+  color: #6b5b4b;
+}
+
+.questAssetsActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.questAssetsEmptyDetails {
+  font-size: 0.85rem;
+  color: #6b5b4b;
+}
+
+.questAssetsTypeRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.questAssetsTypeField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 200px;
+}
+
+.questAssetsTypeButton {
+  margin-bottom: 0.1rem;
+}
+
+.questAssetsUpload {
+  border-radius: 6px;
+  border: 1px dashed #c7b8a2;
+  background: rgba(247, 241, 232, 0.65);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.questAssetsUploadTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hq-accent);
+}
+
+.questAssetsUploadFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.questAssetsUploadField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.questAssetsUploadActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 960px) {
+  .questAssetsLayout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(200px, 1fr) auto;
+  }
 }
 
 /* Stockpile collections sidebar */

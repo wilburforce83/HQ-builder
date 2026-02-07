@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 import { isIconFilename, parseIconMetaFromFilename } from "@/lib/icon-assets";
+import { QUEST_PALETTE_ASSETS } from "@/data/quest-palette-assets";
 
 const dbPath =
   process.env.HQ_DB_PATH ?? path.join(process.cwd(), "..", "db", "hqbuilder.db");
@@ -45,9 +46,17 @@ function initDb() {
       category TEXT,
       grid_w INTEGER,
       grid_h INTEGER,
+      ratio_w REAL,
+      ratio_h REAL,
+      padding_pct REAL,
       icon_type TEXT,
       icon_name TEXT,
       blob BLOB NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS app_state (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS cards (
@@ -126,6 +135,9 @@ function initDb() {
   addColumn("assets", "category TEXT", "category");
   addColumn("assets", "grid_w INTEGER", "grid_w");
   addColumn("assets", "grid_h INTEGER", "grid_h");
+  addColumn("assets", "ratio_w REAL", "ratio_w");
+  addColumn("assets", "ratio_h REAL", "ratio_h");
+  addColumn("assets", "padding_pct REAL", "padding_pct");
   addColumn("assets", "icon_type TEXT", "icon_type");
   addColumn("assets", "icon_name TEXT", "icon_name");
   addColumn("cards", "thumbnail_data_url TEXT", "thumbnail_data_url");
@@ -202,5 +214,153 @@ const hasUserId = {
   collections: columnExists("collections", "user_id"),
   quests: columnExists("quests", "user_id"),
 };
+
+const APP_STATE_SEED_KEY = "quest_assets_seeded_v1";
+
+function getAppStateValue(key: string): string | null {
+  if (!tableExists("app_state")) return null;
+  const row = db
+    .prepare("SELECT value FROM app_state WHERE key=?")
+    .get(key) as { value?: string } | undefined;
+  return row?.value ?? null;
+}
+
+function setAppStateValue(key: string, value: string) {
+  db.prepare("INSERT OR REPLACE INTO app_state (key, value) VALUES (?, ?)").run(
+    key,
+    value,
+  );
+}
+
+function parseSvgDimensions(svgText: string): { width: number; height: number } {
+  const widthMatch = svgText.match(/\bwidth=["']([^"']+)["']/i);
+  const heightMatch = svgText.match(/\bheight=["']([^"']+)["']/i);
+  const parseLength = (value: string | undefined) => {
+    if (!value) return 0;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  let width = parseLength(widthMatch?.[1]);
+  let height = parseLength(heightMatch?.[1]);
+  if (!width || !height) {
+    const viewBoxMatch = svgText.match(/\bviewBox=["']([^"']+)["']/i);
+    if (viewBoxMatch?.[1]) {
+      const parts = viewBoxMatch[1]
+        .split(/[ ,]+/)
+        .map((part) => Number.parseFloat(part))
+        .filter((value) => Number.isFinite(value));
+      if (parts.length === 4) {
+        width = width || parts[2] || 0;
+        height = height || parts[3] || 0;
+      }
+    }
+  }
+  if (!width || !height) {
+    width = width || 256;
+    height = height || 256;
+  }
+  return { width, height };
+}
+
+function resolveMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  return "application/octet-stream";
+}
+
+function seedQuestAssets() {
+  if (!tableExists("assets")) return;
+  if (getAppStateValue(APP_STATE_SEED_KEY) === "1") return;
+
+  const selectExisting = hasUserId.assets
+    ? db.prepare("SELECT id FROM assets WHERE id=? AND user_id=?")
+    : db.prepare("SELECT id FROM assets WHERE id=?");
+
+  const insertWithUser = db.prepare(
+    `INSERT OR REPLACE INTO assets (
+      id,user_id,name,mime_type,width,height,created_at,category,grid_w,grid_h,ratio_w,ratio_h,padding_pct,icon_type,icon_name,blob
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  );
+  const insertWithoutUser = db.prepare(
+    `INSERT OR REPLACE INTO assets (
+      id,name,mime_type,width,height,created_at,category,grid_w,grid_h,ratio_w,ratio_h,padding_pct,icon_type,icon_name,blob
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  );
+
+  for (const asset of QUEST_PALETTE_ASSETS) {
+    const exists = hasUserId.assets
+      ? selectExisting.get(asset.id, DEFAULT_USER_ID)
+      : selectExisting.get(asset.id);
+    if (exists) continue;
+
+    const publicPath = asset.url.replace(/^\//, "");
+    const filePath = path.join(process.cwd(), "public", publicPath);
+    if (!fs.existsSync(filePath)) continue;
+
+    let buffer: Buffer;
+    try {
+      buffer = fs.readFileSync(filePath);
+    } catch {
+      continue;
+    }
+
+    const mimeType = resolveMimeType(filePath);
+    let width = 256;
+    let height = 256;
+    if (mimeType === "image/svg+xml") {
+      const svgText = buffer.toString("utf-8");
+      const dims = parseSvgDimensions(svgText);
+      width = dims.width;
+      height = dims.height;
+    }
+
+    const createdAt = Date.now();
+    if (hasUserId.assets) {
+      insertWithUser.run(
+        asset.id,
+        DEFAULT_USER_ID,
+        asset.name,
+        mimeType,
+        width,
+        height,
+        createdAt,
+        asset.category,
+        asset.gridW,
+        asset.gridH,
+        1,
+        1,
+        0,
+        null,
+        null,
+        buffer,
+      );
+    } else {
+      insertWithoutUser.run(
+        asset.id,
+        asset.name,
+        mimeType,
+        width,
+        height,
+        createdAt,
+        asset.category,
+        asset.gridW,
+        asset.gridH,
+        1,
+        1,
+        0,
+        null,
+        null,
+        buffer,
+      );
+    }
+  }
+
+  setAppStateValue(APP_STATE_SEED_KEY, "1");
+}
+
+seedQuestAssets();
 
 export { db, DEFAULT_USER_ID, hasUserId };

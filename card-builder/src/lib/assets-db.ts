@@ -10,6 +10,9 @@ export type AssetRecord = {
   category?: string | null;
   gridW?: number | null;
   gridH?: number | null;
+  ratioW?: number | null;
+  ratioH?: number | null;
+  paddingPct?: number | null;
   iconType?: string | null;
   iconName?: string | null;
 };
@@ -50,6 +53,9 @@ export async function addAsset(
   if (meta.category) form.append("category", meta.category);
   if (meta.gridW != null) form.append("gridW", String(meta.gridW));
   if (meta.gridH != null) form.append("gridH", String(meta.gridH));
+  if (meta.ratioW != null) form.append("ratioW", String(meta.ratioW));
+  if (meta.ratioH != null) form.append("ratioH", String(meta.ratioH));
+  if (meta.paddingPct != null) form.append("paddingPct", String(meta.paddingPct));
   if (meta.iconType) form.append("iconType", meta.iconType);
   if (meta.iconName) form.append("iconName", meta.iconName);
 
@@ -119,4 +125,25 @@ export async function deleteAssets(ids: string[]): Promise<void> {
     },
     body: JSON.stringify({ ids }),
   });
+}
+
+export async function updateAssetMeta(
+  id: string,
+  patch: Partial<
+    Pick<
+      AssetRecord,
+      "name" | "iconType" | "iconName" | "gridW" | "gridH" | "paddingPct"
+    >
+  >,
+): Promise<AssetRecord | null> {
+  if (!id) return null;
+  const payload = { id, ...patch };
+  const data = (await fetchJson(`${API_BASE}/assets`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })) as AssetRecord;
+  return data ?? null;
 }
