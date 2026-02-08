@@ -4,6 +4,19 @@ import { db, DEFAULT_USER_ID, hasUserId } from "@/lib/server/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function parseNotes(raw: any) {
+  if (typeof raw !== "string") return raw ?? null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // legacy plain text notes
+  }
+  return raw;
+}
+
 function rowToQuest(row: any) {
   return {
     id: row.id,
@@ -11,7 +24,7 @@ function rowToQuest(row: any) {
     campaign: row.campaign,
     author: row.author,
     story: row.story,
-    notes: row.notes,
+    notes: parseNotes(row.notes),
     wanderingMonster: row.wandering_monster,
     data: row.data_json ? JSON.parse(row.data_json) : null,
     createdAt: row.created_at,

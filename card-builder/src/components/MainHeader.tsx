@@ -89,7 +89,7 @@ export default function MainHeader({
         >
           {isImporting ? t("actions.importing") : t("actions.importData")}
         </IconButton>
-        <a href="/" className={`btn btn-outline-light btn-sm ${styles.headerNavLink}`}>
+        <a href="/quest-builder" className={`btn btn-outline-light btn-sm ${styles.headerNavLink}`}>
           <ArrowLeft className={styles.icon} aria-hidden="true" />
           Quest Builder
         </a>

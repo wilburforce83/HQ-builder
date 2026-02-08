@@ -1,0 +1,349 @@
+.playPage {
+  min-height: 100vh;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background: radial-gradient(circle at top, rgba(246, 235, 213, 0.9), rgba(210, 192, 165, 0.95));
+  color: #2b2b2b;
+}
+
+.playHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.playHeader h1 {
+  margin: 0.25rem 0 0;
+  font-family: var(--hq-font-display);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.playKicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  color: #6b5b4b;
+}
+
+.playHeaderLink {
+  text-decoration: none;
+  border: 1px solid #c7b8a2;
+  background: rgba(247, 241, 232, 0.9);
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #2b2b2b;
+}
+
+.playHeaderLink:hover {
+  background: #e6d5b6;
+}
+
+.playGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.playCard {
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #c7b8a2;
+  border-radius: 12px;
+  background: rgba(247, 241, 232, 0.95);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.playCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.18);
+}
+
+.playThumbnail {
+  background: rgba(31, 26, 21, 0.85);
+  color: #f6e7ce;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  font-size: 0.85rem;
+}
+
+.playThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playMeta {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.playMeta h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.playMeta p {
+  margin: 0;
+  color: #5a4a3b;
+  font-size: 0.9rem;
+}
+
+.playDate {
+  font-size: 0.78rem;
+  color: #7a6756;
+}
+
+.playEmpty {
+  text-align: center;
+  color: #6b5b4b;
+  padding: 2rem 1rem;
+}
+
+/* Session */
+
+.sessionPage {
+  min-height: 100vh;
+  background: #1a1612;
+  color: #f6e7ce;
+}
+
+.sessionShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.sessionEmbedded {
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+.sessionHeader {
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(247, 241, 232, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sessionKicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: rgba(246, 231, 206, 0.7);
+}
+
+.sessionTitle {
+  margin: 0.2rem 0 0;
+  font-family: var(--hq-font-display);
+  font-weight: 400;
+}
+
+.sessionLink {
+  text-decoration: none;
+  border: 1px solid rgba(246, 231, 206, 0.6);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  color: inherit;
+}
+
+.sessionBody {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sessionMap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sessionOverlay {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  background: rgba(26, 22, 18, 0.95);
+  border-top: 1px solid rgba(247, 241, 232, 0.2);
+}
+
+.sessionButtons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sessionButtons button {
+  background: rgba(247, 241, 232, 0.9);
+  color: #2b2b2b;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  min-height: 44px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sessionButtons button:hover {
+  background: #e6d5b6;
+}
+
+.sessionCards {
+  background: rgba(247, 241, 232, 0.08);
+  border: 1px solid rgba(247, 241, 232, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.sessionCardsTitle {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.sessionCardsEmpty {
+  color: rgba(246, 231, 206, 0.7);
+  font-size: 0.9rem;
+}
+
+.sessionCardsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sessionCardName {
+  font-weight: 600;
+}
+
+.sessionCardMeta {
+  font-size: 0.78rem;
+  color: rgba(246, 231, 206, 0.7);
+}
+
+/* Map */
+
+.mapViewport {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background: radial-gradient(circle at top, rgba(34, 28, 23, 0.9), rgba(18, 14, 12, 0.95));
+}
+
+.mapSurface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.mapInner {
+  position: relative;
+  transform-origin: 0 0;
+}
+
+.mapGrid {
+  display: grid;
+  grid-template-columns: repeat(26, var(--cell-size));
+  grid-template-rows: repeat(19, var(--cell-size));
+}
+
+.mapCell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  box-sizing: border-box;
+  position: relative;
+  background: rgba(232, 230, 228, 0.85);
+  border: none;
+  padding: 0;
+}
+
+.mapCellSelected {
+  outline: 2px solid #e07a2f;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.corridor {
+  background: rgba(226, 221, 210, 0.85);
+}
+
+.borderLeft {
+  border-left: 1.5px solid #735344;
+}
+
+.borderRight {
+  border-right: 1.5px solid #735344;
+}
+
+.borderTop {
+  border-top: 1.5px solid #735344;
+}
+
+.borderBottom {
+  border-bottom: 1.5px solid #735344;
+}
+
+.mapFog {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+.mapEntities {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(26, var(--cell-size));
+  grid-template-rows: repeat(19, var(--cell-size));
+  pointer-events: none;
+}
+
+.mapEntity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.mapEntity img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 720px) {
+  .sessionOverlay {
+    padding-bottom: 1.5rem;
+  }
+}

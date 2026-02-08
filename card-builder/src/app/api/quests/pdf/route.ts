@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { readFile } from "fs/promises";
 import boardData from "@/data/boardData";
+import type { QuestNote } from "@/types/quest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,9 +28,12 @@ type QuestPayload = {
   campaign?: string | null;
   author?: string | null;
   story?: string | null;
-  notes?: string | null;
+  notes?: QuestNote[] | string | null;
   wanderingMonster?: string | null;
-  data?: { items?: PlacedItem[] } | null;
+  data?: {
+    items?: PlacedItem[];
+    wandering?: { assetId: string; source: "builtin" | "custom" } | null;
+  } | null;
 };
 
 const BUILTIN_ASSET_URLS: Record<string, string> = {
@@ -109,6 +113,34 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+function formatNotesForExport(raw: QuestPayload["notes"]): string {
+  if (Array.isArray(raw)) {
+    const sorted = [...raw].sort((a, b) => a.number - b.number);
+    const lines = sorted
+      .map((note) => ({
+        number: note.number,
+        text: note.text?.trim() ?? "",
+      }))
+      .filter((note) => note.text.length > 0)
+      .map((note) => (note.number === 1 ? note.text : `${note.number}. ${note.text}`));
+    return lines.join("\n\n");
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return formatNotesForExport(parsed as QuestNote[]);
+      }
+    } catch {
+      // plain text notes
+    }
+    return raw;
+  }
+  return "";
+}
+
 function getBaseUrl(request: Request) {
   const host = request.headers.get("host") ?? "localhost:3000";
   const proto = request.headers.get("x-forwarded-proto") ?? "http";
@@ -161,7 +193,7 @@ export async function POST(request: Request) {
     .join("");
 
   const story = payload.story ?? "";
-  const notes = payload.notes ?? "";
+  const notes = formatNotesForExport(payload.notes);
   const title = payload.title ?? "Untitled Quest";
   const campaignRaw = payload.campaign ?? "";
   const campaign = campaignRaw.trim()

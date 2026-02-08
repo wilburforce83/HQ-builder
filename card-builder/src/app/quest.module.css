@@ -304,12 +304,59 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  justify-content: flex-start;
+  align-items: center;
   overflow: auto;
   order: 2;
   position: relative;
   z-index: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.playTestRow {
+  display: flex;
+  justify-content: center;
+}
+
+.playTestRow button {
+  border: 1px solid #c7b8a2;
+  background: rgba(247, 241, 232, 0.95);
+  padding: 0.45rem 1.2rem;
+  min-height: 36px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: var(--hq-font-inline);
+  letter-spacing: 0.06em;
+  color: #2b2b2b;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.playTestRow button:hover {
+  background: #d9c49e;
+}
+
+.playTestModal {
+  width: min(1200px, 100% - 2rem);
+  height: min(820px, calc(100vh - 6rem));
+  max-height: calc(100vh - 6rem);
+}
+
+.playTestModal :global(.modal-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.playTestBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
 }
 
 .gridLayer {
@@ -427,6 +474,65 @@
   min-height: 120px;
   height: auto;
   resize: none;
+}
+
+.notesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notesHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notesHeaderLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a3c2a;
+}
+
+.addNoteButton {
+  border: 1px solid #c7b8a2;
+  background: rgba(247, 241, 232, 0.95);
+  padding: 0.35rem 0.9rem;
+  min-height: 32px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--hq-font-inline);
+  letter-spacing: 0.05em;
+  color: #2b2b2b;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.addNoteButton:hover {
+  background: #d9c49e;
+}
+
+.notesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.noteField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.noteLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #4a3c2a;
+  text-transform: uppercase;
 }
 
 .notesSingleLine::placeholder,
