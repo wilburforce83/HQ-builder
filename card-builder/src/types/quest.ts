@@ -18,6 +18,7 @@ export interface Action {
 }
 
 export interface IconLogic {
+  id?: string;
   iconId: string;
   triggerType: string;
   conditions: Condition[];

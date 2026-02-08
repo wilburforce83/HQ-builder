@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import {
   DEFAULT_PLAY_SESSION_STATE,
@@ -60,6 +60,13 @@ function loadState(storageKey: string): PlaySessionState {
           : {},
       narratives: Array.isArray(parsed.narratives) ? parsed.narratives : [],
       objectives: Array.isArray(parsed.objectives) ? parsed.objectives : [],
+      heroTokens: Array.isArray(parsed.heroTokens) ? parsed.heroTokens : [],
+      entityPositions:
+        parsed.entityPositions && typeof parsed.entityPositions === "object"
+          ? (parsed.entityPositions as Record<string, { x: number; y: number }>)
+          : {},
+      movementTrail: Array.isArray(parsed.movementTrail) ? parsed.movementTrail : [],
+      openDoors: Array.isArray(parsed.openDoors) ? parsed.openDoors : [],
     };
   } catch {
     return DEFAULT_PLAY_SESSION_STATE;
@@ -91,9 +98,11 @@ export function usePlaySessionEngine({
     storageKey,
     () => loadState(storageKey),
   );
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
     dispatch({ type: "reset", state: loadState(storageKey) });
+    hasStartedRef.current = false;
   }, [storageKey]);
 
   useEffect(() => {
@@ -154,6 +163,28 @@ export function usePlaySessionEngine({
     dispatch({ type: "addObjective", objectiveId });
   }, []);
 
+  const addHero = useCallback((hero: { id: string; assetId: string; name: string; x: number; y: number }) => {
+    if (!hero || !hero.id) return;
+    dispatch({ type: "addHero", hero });
+  }, []);
+
+  const moveEntity = useCallback(
+    (entityId: string, position: TileCoord, trail?: TileCoord[]) => {
+      if (!entityId || !position) return;
+      dispatch({ type: "moveEntity", entityId, position, trail });
+    },
+    [],
+  );
+
+  const clearMovementTrail = useCallback(() => {
+    dispatch({ type: "clearMovementTrail" });
+  }, []);
+
+  const openDoor = useCallback((doorId: string) => {
+    if (!doorId) return;
+    dispatch({ type: "openDoor", doorId });
+  }, []);
+
   const getVisibleRegion = useCallback(
     (position: TileCoord, rules?: { radius?: number }) =>
       getVisibleRegionAt(position, { ...rules, columns, rows }),
@@ -181,6 +212,8 @@ export function usePlaySessionEngine({
         items,
         flags: state.flags,
         notes,
+        columns,
+        rows,
       });
 
       if (resolution.revealTiles.length) {
@@ -209,6 +242,41 @@ export function usePlaySessionEngine({
     ],
   );
 
+  useEffect(() => {
+    if (!hasLogic) return;
+    if (hasStartedRef.current) return;
+    const isFreshSession =
+      state.discoveredTiles.length === 0 &&
+      state.revealedEntities.length === 0 &&
+      state.revealedCards.length === 0 &&
+      state.narratives.length === 0 &&
+      state.objectives.length === 0 &&
+      Object.keys(state.flags ?? {}).length === 0 &&
+      state.heroTokens.length === 0 &&
+      Object.keys(state.entityPositions ?? {}).length === 0 &&
+      state.movementTrail.length === 0 &&
+      state.openDoors.length === 0;
+    if (!isFreshSession) {
+      hasStartedRef.current = true;
+      return;
+    }
+    hasStartedRef.current = true;
+    applyLogicTrigger({ type: "onStart" });
+  }, [
+    applyLogicTrigger,
+    hasLogic,
+    state.discoveredTiles.length,
+    state.flags,
+    state.heroTokens.length,
+    state.entityPositions,
+    state.movementTrail.length,
+    state.openDoors.length,
+    state.narratives.length,
+    state.objectives.length,
+    state.revealedCards.length,
+    state.revealedEntities.length,
+  ]);
+
   const handleSearchAction = useCallback(
     (position: TileCoord | null) => {
       if (!position) return;
@@ -233,7 +301,10 @@ export function usePlaySessionEngine({
         return Boolean(info?.isDoor);
       });
       if (!doorEntities.length) return;
-      doorEntities.forEach((entityId) => revealEntity(entityId));
+      doorEntities.forEach((entityId) => {
+        revealEntity(entityId);
+        openDoor(entityId);
+      });
       const doorPositions = doorEntities
         .map((entityId) => items.find((item) => item.id === entityId))
         .filter(Boolean) as QuestItem[];
@@ -259,18 +330,21 @@ export function usePlaySessionEngine({
       revealEntitiesInRegion,
       revealEntity,
       revealTiles,
+      openDoor,
     ],
   );
 
   const handleEnterTile = useCallback(
-    (position: TileCoord | null) => {
+    (position: TileCoord | null, triggerTiles?: TileCoord[]) => {
       if (!position) return;
-      revealTiles([position]);
+      const revealTilesList = [position];
+      const tilesForTrigger = triggerTiles && triggerTiles.length ? triggerTiles : revealTilesList;
+      revealTiles(revealTilesList);
       if (hasLogic) {
-        applyLogicTrigger({ type: "onEnterTile", tiles: [position] });
-        applyLogicTrigger({ type: "onReveal", tiles: [position] });
+        applyLogicTrigger({ type: "onEnterTile", tiles: tilesForTrigger });
+        applyLogicTrigger({ type: "onReveal", tiles: revealTilesList });
       } else {
-        revealEntitiesInRegion([position]);
+        revealEntitiesInRegion(tilesForTrigger);
       }
     },
     [applyLogicTrigger, hasLogic, revealEntitiesInRegion, revealTiles],
@@ -279,6 +353,14 @@ export function usePlaySessionEngine({
   const resetSession = useCallback(() => {
     dispatch({ type: "reset", state: DEFAULT_PLAY_SESSION_STATE });
   }, []);
+
+  const restartSession = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(storageKey);
+    }
+    hasStartedRef.current = false;
+    dispatch({ type: "reset", state: DEFAULT_PLAY_SESSION_STATE });
+  }, [storageKey]);
 
   return useMemo(
     () => ({
@@ -291,7 +373,12 @@ export function usePlaySessionEngine({
       handleOpenDoor,
       handleEnterTile,
       applyLogicTrigger,
+      addHero,
+      moveEntity,
+      clearMovementTrail,
+      openDoor,
       resetSession,
+      restartSession,
     }),
     [
       state,
@@ -303,7 +390,12 @@ export function usePlaySessionEngine({
       handleOpenDoor,
       handleEnterTile,
       applyLogicTrigger,
+      addHero,
+      moveEntity,
+      clearMovementTrail,
+      openDoor,
       resetSession,
+      restartSession,
     ],
   );
 }

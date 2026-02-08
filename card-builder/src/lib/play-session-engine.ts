@@ -26,6 +26,15 @@ export type RevealedCard = {
   revealedAt: number;
 };
 
+export type HeroToken = {
+  id: string;
+  assetId: string;
+  name: string;
+  x: number;
+  y: number;
+  rotation?: number;
+};
+
 export type PlaySessionState = {
   discoveredTiles: string[];
   revealedEntities: string[];
@@ -33,6 +42,10 @@ export type PlaySessionState = {
   flags: Record<string, boolean>;
   narratives: string[];
   objectives: string[];
+  heroTokens: HeroToken[];
+  entityPositions: Record<string, TileCoord>;
+  movementTrail: TileCoord[];
+  openDoors: string[];
 };
 
 export const DEFAULT_PLAY_SESSION_STATE: PlaySessionState = {
@@ -42,6 +55,10 @@ export const DEFAULT_PLAY_SESSION_STATE: PlaySessionState = {
   flags: {},
   narratives: [],
   objectives: [],
+  heroTokens: [],
+  entityPositions: {},
+  movementTrail: [],
+  openDoors: [],
 };
 
 export type PlaySessionAction =
@@ -52,7 +69,11 @@ export type PlaySessionAction =
   | { type: "setFlag"; flag: string }
   | { type: "clearFlag"; flag: string }
   | { type: "addNarrative"; noteIds: string[] }
-  | { type: "addObjective"; objectiveId: string };
+  | { type: "addObjective"; objectiveId: string }
+  | { type: "addHero"; hero: HeroToken }
+  | { type: "moveEntity"; entityId: string; position: TileCoord; trail?: TileCoord[] }
+  | { type: "clearMovementTrail" }
+  | { type: "openDoor"; doorId: string };
 
 const EPSILON = 0.0001;
 
@@ -87,10 +108,43 @@ function mergeCards(base: RevealedCard[], card?: RevealedCard | null): RevealedC
   return [...base, card];
 }
 
+function mergeDoorIds(base: string[], doorId: string) {
+  if (!doorId) return base;
+  if (base.includes(doorId)) return base;
+  return [...base, doorId];
+}
+
 function setFlagValue(flags: Record<string, boolean>, flag: string, value: boolean) {
   if (!flag) return flags;
   if (flags[flag] === value) return flags;
   return { ...flags, [flag]: value };
+}
+
+function normalizeHeroTokens(tokens: HeroToken[]) {
+  if (!Array.isArray(tokens)) return [];
+  return tokens.filter(
+    (token) =>
+      token &&
+      typeof token.id === "string" &&
+      typeof token.assetId === "string" &&
+      Number.isFinite(token.x) &&
+      Number.isFinite(token.y),
+  );
+}
+
+function normalizeEntityPositions(raw: Record<string, TileCoord> | null | undefined) {
+  if (!raw || typeof raw !== "object") return {};
+  const entries = Object.entries(raw).filter(([, value]) => {
+    return value && Number.isFinite(value.x) && Number.isFinite(value.y);
+  });
+  return Object.fromEntries(entries) as Record<string, TileCoord>;
+}
+
+function normalizeTrail(trail: TileCoord[] | null | undefined) {
+  if (!Array.isArray(trail)) return [];
+  return trail.filter(
+    (coord) => coord && Number.isFinite(coord.x) && Number.isFinite(coord.y),
+  );
 }
 
 export function playSessionReducer(
@@ -106,6 +160,10 @@ export function playSessionReducer(
         flags: action.state.flags ?? {},
         narratives: uniqueStrings(action.state.narratives ?? []),
         objectives: uniqueStrings(action.state.objectives ?? []),
+        heroTokens: normalizeHeroTokens(action.state.heroTokens ?? []),
+        entityPositions: normalizeEntityPositions(action.state.entityPositions ?? {}),
+        movementTrail: normalizeTrail(action.state.movementTrail ?? []),
+        openDoors: uniqueStrings(action.state.openDoors ?? []),
       };
     case "revealTiles": {
       const keys = action.tiles.map(tileKey);
@@ -146,6 +204,39 @@ export function playSessionReducer(
       return {
         ...state,
         objectives: mergeStrings(state.objectives, [action.objectiveId]),
+      };
+    case "addHero": {
+      if (state.heroTokens.some((token) => token.id === action.hero.id)) return state;
+      return {
+        ...state,
+        heroTokens: [...state.heroTokens, action.hero],
+      };
+    }
+    case "moveEntity": {
+      const { entityId, position, trail } = action;
+      const nextPositions = {
+        ...state.entityPositions,
+        [entityId]: position,
+      };
+      const nextHeroes = state.heroTokens.map((token) =>
+        token.id === entityId ? { ...token, x: position.x, y: position.y } : token,
+      );
+      return {
+        ...state,
+        heroTokens: nextHeroes,
+        entityPositions: nextPositions,
+        movementTrail: normalizeTrail(trail ?? []),
+      };
+    }
+    case "clearMovementTrail":
+      return {
+        ...state,
+        movementTrail: [],
+      };
+    case "openDoor":
+      return {
+        ...state,
+        openDoors: mergeDoorIds(state.openDoors, action.doorId),
       };
     default:
       return state;

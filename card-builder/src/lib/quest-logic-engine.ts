@@ -1,4 +1,9 @@
-import { findEntitiesInRegion, type QuestItem, type TileCoord } from "@/lib/play-session-engine";
+import {
+  findEntitiesInRegion,
+  getVisibleRegionAt,
+  type QuestItem,
+  type TileCoord,
+} from "@/lib/play-session-engine";
 import type { IconLogic, QuestNote } from "@/types/quest";
 
 export type LogicTrigger = {
@@ -23,6 +28,8 @@ type LogicContext = {
   items: QuestItem[];
   flags: Record<string, boolean>;
   notes: QuestNote[];
+  columns?: number;
+  rows?: number;
 };
 
 function uniqueStrings(items: string[]) {
@@ -86,7 +93,10 @@ function conditionsPass(entry: IconLogic, flags: Record<string, boolean>, noteId
 
 export function resolveLogicActions(context: LogicContext): LogicResolution {
   const { trigger, iconLogic, items, flags, notes } = context;
+  const columns = context.columns ?? 26;
+  const rows = context.rows ?? 19;
   const noteIds = new Set(notes.map((note) => note.id));
+  const itemsById = new Map(items.map((item) => [item.id, item]));
 
   const matchingEntries = iconLogic.filter((entry) => entry.triggerType === trigger.type);
   if (matchingEntries.length === 0) {
@@ -146,6 +156,26 @@ export function resolveLogicActions(context: LogicContext): LogicResolution {
               revealEntities.push(id.trim());
             }
           }
+          break;
+        }
+        case "revealRadius": {
+          const radiusRaw = action.payload?.radius;
+          const radiusParsed = Number.isFinite(radiusRaw)
+            ? Number(radiusRaw)
+            : Number.parseInt(String(radiusRaw ?? ""), 10);
+          const radius = Number.isFinite(radiusParsed) ? Math.max(1, radiusParsed) : 1;
+          const origins: TileCoord[] = [];
+          const item = itemsById.get(entry.iconId);
+          if (item) {
+            origins.push({ x: item.x, y: item.y });
+          }
+          if (!origins.length && Array.isArray(trigger.tiles)) {
+            origins.push(...trigger.tiles);
+          }
+          origins.forEach((origin) => {
+            const region = getVisibleRegionAt(origin, { radius, columns, rows });
+            revealTiles.push(...region);
+          });
           break;
         }
         case "addNarrative": {

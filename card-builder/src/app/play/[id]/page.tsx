@@ -8,6 +8,7 @@ import styles from "@/app/play.module.css";
 type AssetRecord = {
   id: string;
   name: string;
+  category?: string | null;
   iconType?: string | null;
   iconName?: string | null;
 };

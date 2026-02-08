@@ -16,6 +16,7 @@ describe("quest logic engine", () => {
         conditions: [{ type: "flagUnset", operand: "searched" }],
         actions: [
           { type: "revealTiles", payload: { coords: [{ x: 2, y: 3 }] } },
+          { type: "revealRadius", payload: { radius: 1 } },
           { type: "revealEntities", payload: { entityIds: ["icon-1"] } },
           { type: "addNarrative", payload: { noteIds: ["note-1"] } },
           { type: "revealCard", payload: { cardIds: ["card-1"] } },
@@ -33,7 +34,9 @@ describe("quest logic engine", () => {
       notes,
     });
 
-    expect(result.revealTiles).toEqual([{ x: 2, y: 3 }]);
+    expect(result.revealTiles).toEqual(
+      expect.arrayContaining([{ x: 2, y: 3 }]),
+    );
     expect(result.revealEntities).toEqual(["icon-1"]);
     expect(result.noteIds).toEqual(["note-1"]);
     expect(result.cardIds).toEqual(["card-1"]);

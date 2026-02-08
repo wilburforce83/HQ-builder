@@ -24,6 +24,7 @@ type GameLogicBuilderModalProps = {
 };
 
 const TRIGGER_OPTIONS = [
+  "onStart",
   "onEnterTile",
   "onReveal",
   "onOpenDoor",
@@ -41,6 +42,7 @@ const CONDITION_OPTIONS = [
 
 const ACTION_OPTIONS = [
   "revealTiles",
+  "revealRadius",
   "revealEntities",
   "addNarrative",
   "revealCard",
@@ -99,8 +101,16 @@ function getTargetScale(target: IconTarget) {
   };
 }
 
-function createDefaultLogic(iconId: string): IconLogic {
+function createLogicId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createDefaultLogic(iconId: string, id: string = createLogicId()): IconLogic {
   return {
+    id,
     iconId,
     triggerType: "onEnterTile",
     conditionsMode: "all",
@@ -158,6 +168,7 @@ function coordsFromRect(start: { x: number; y: number }, end: { x: number; y: nu
 function normalizeLogic(logic: IconLogic[]): IconLogic[] {
   return logic.map((entry) => ({
     ...entry,
+    id: entry.id ?? createLogicId(),
     triggerType: entry.triggerType || "onEnterTile",
     conditionsMode: entry.conditionsMode ?? "all",
     conditions: Array.isArray(entry.conditions) ? entry.conditions : [],
@@ -177,21 +188,23 @@ function useValidation(
     const noteIds = new Set(notes.map((note) => note.id));
     const cardIds = new Set(cards.map((card) => card.id));
     const iconMap = new Map(iconTargets.map((target) => [target.id, target]));
-    const overlapBuckets = new Map<string, string[]>();
+    const overlapBuckets = new Map<string, Set<string>>();
 
     for (const entry of logic) {
       const icon = iconMap.get(entry.iconId);
       if (!icon) {
-        warnings.push(`Logic attached to a missing icon (${entry.iconId}).`);
+        warnings.push(
+          `Logic trigger ${entry.triggerType} attached to a missing icon (${entry.iconId}).`,
+        );
       } else {
         const key = `${icon.x},${icon.y}`;
-        const bucket = overlapBuckets.get(key) ?? [];
-        bucket.push(icon.label);
+        const bucket = overlapBuckets.get(key) ?? new Set<string>();
+        bucket.add(icon.id);
         overlapBuckets.set(key, bucket);
       }
 
       if (!entry.actions || entry.actions.length === 0) {
-        errors.push(`Icon ${entry.iconId} needs at least one action.`);
+        errors.push(`Icon ${entry.iconId} (${entry.triggerType}) needs at least one action.`);
       }
 
       for (const condition of entry.conditions ?? []) {
@@ -225,6 +238,15 @@ function useValidation(
             }
           }
         }
+        if (action.type === "revealRadius") {
+          const radiusRaw = action.payload?.radius;
+          const radius = Number.isFinite(radiusRaw)
+            ? Number(radiusRaw)
+            : Number.parseFloat(String(radiusRaw ?? ""));
+          if (!Number.isFinite(radius) || radius <= 0) {
+            errors.push("Reveal radius actions need a positive radius.");
+          }
+        }
         if (action.type === "revealCard") {
           const cardIdsPayload = Array.isArray(action.payload?.cardIds) ? action.payload.cardIds : [];
           if (cardIdsPayload.length === 0) {
@@ -239,9 +261,12 @@ function useValidation(
       }
     }
 
-    for (const [coords, labels] of overlapBuckets) {
-      if (labels.length > 1) {
-        warnings.push(`Multiple logic triggers share tile ${coords}: ${labels.join(", ")}.`);
+    for (const [coords, ids] of overlapBuckets) {
+      if (ids.size > 1) {
+        const labels = Array.from(ids)
+          .map((id) => iconMap.get(id)?.label ?? id)
+          .join(", ");
+        warnings.push(`Multiple logic triggers share tile ${coords}: ${labels}.`);
       }
     }
 
@@ -344,6 +369,7 @@ export default function GameLogicBuilderModal({
 }: GameLogicBuilderModalProps) {
   const [draftLogic, setDraftLogic] = useState<IconLogic[]>([]);
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
+  const [selectedLogicId, setSelectedLogicId] = useState<string | null>(null);
   const [cards, setCards] = useState<CardSummary[]>([]);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -357,10 +383,20 @@ export default function GameLogicBuilderModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setDraftLogic(normalizeLogic(initialLogic ?? []));
+    const normalized = normalizeLogic(initialLogic ?? []);
+    setDraftLogic(normalized);
     setSelectedIconId((prev) => {
-      if (prev && iconTargets.some((target) => target.id === prev)) return prev;
-      return iconTargets[0]?.id ?? null;
+      const next =
+        prev && iconTargets.some((target) => target.id === prev)
+          ? prev
+          : iconTargets[0]?.id ?? null;
+      if (!next) {
+        setSelectedLogicId(null);
+        return next;
+      }
+      const firstLogic = normalized.find((entry) => entry.iconId === next);
+      setSelectedLogicId(firstLogic?.id ?? null);
+      return next;
     });
   }, [isOpen, initialLogic, iconTargets]);
 
@@ -393,7 +429,7 @@ export default function GameLogicBuilderModal({
     setActiveRevealActionIndex(null);
     setFocusedRevealActionIndex(null);
     setDragSelection(null);
-  }, [isOpen, selectedIconId]);
+  }, [isOpen, selectedIconId, selectedLogicId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -419,11 +455,37 @@ export default function GameLogicBuilderModal({
   const iconMap = useMemo(() => {
     return new Map(iconTargets.map((target) => [target.id, target]));
   }, [iconTargets]);
+  const logicCountByIconId = useMemo(() => {
+    const counts = new Map<string, number>();
+    draftLogic.forEach((entry) => {
+      counts.set(entry.iconId, (counts.get(entry.iconId) ?? 0) + 1);
+    });
+    return counts;
+  }, [draftLogic]);
 
   const selectedIcon = selectedIconId ? iconMap.get(selectedIconId) : undefined;
-  const selectedLogic = selectedIconId
-    ? draftLogic.find((entry) => entry.iconId === selectedIconId)
-    : undefined;
+  const logicEntriesForSelectedIcon = useMemo(
+    () => (selectedIconId ? draftLogic.filter((entry) => entry.iconId === selectedIconId) : []),
+    [draftLogic, selectedIconId],
+  );
+  const selectedLogic = selectedLogicId
+    ? draftLogic.find((entry) => entry.id === selectedLogicId)
+    : logicEntriesForSelectedIcon[0];
+
+  useEffect(() => {
+    if (!selectedIconId) {
+      setSelectedLogicId(null);
+      return;
+    }
+    if (logicEntriesForSelectedIcon.length === 0) {
+      setSelectedLogicId(null);
+      return;
+    }
+    if (selectedLogicId && logicEntriesForSelectedIcon.some((entry) => entry.id === selectedLogicId)) {
+      return;
+    }
+    setSelectedLogicId(logicEntriesForSelectedIcon[0]?.id ?? null);
+  }, [logicEntriesForSelectedIcon, selectedIconId, selectedLogicId]);
 
   useEffect(() => {
     if (!selectedLogic) {
@@ -472,28 +534,37 @@ export default function GameLogicBuilderModal({
     [iconTargets],
   );
 
-  const ensureLogic = (iconId: string) => {
-    setDraftLogic((prev) => {
-      if (prev.some((entry) => entry.iconId === iconId)) return prev;
-      return [...prev, createDefaultLogic(iconId)];
-    });
-  };
-
   const updateSelectedLogic = (updater: (entry: IconLogic) => IconLogic) => {
-    if (!selectedIconId) return;
+    if (!selectedLogicId) return;
     setDraftLogic((prev) =>
-      prev.map((entry) => (entry.iconId === selectedIconId ? updater(entry) : entry)),
+      prev.map((entry) => (entry.id === selectedLogicId ? updater(entry) : entry)),
     );
   };
 
   const handleSelectIcon = (iconId: string) => {
-    ensureLogic(iconId);
+    const existing = draftLogic.filter((entry) => entry.iconId === iconId);
+    if (existing.length > 0) {
+      setSelectedIconId(iconId);
+      setSelectedLogicId(existing[0]?.id ?? null);
+      return;
+    }
+    const newLogic = createDefaultLogic(iconId);
+    setDraftLogic((prev) => [...prev, newLogic]);
     setSelectedIconId(iconId);
+    setSelectedLogicId(newLogic.id ?? null);
   };
 
-  const handleRemoveLogic = (iconId: string) => {
-    setDraftLogic((prev) => prev.filter((entry) => entry.iconId !== iconId));
-    setSelectedIconId((prev) => (prev === iconId ? null : prev));
+  const handleAddTrigger = () => {
+    if (!selectedIconId) return;
+    const newLogic = createDefaultLogic(selectedIconId);
+    setDraftLogic((prev) => [...prev, newLogic]);
+    setSelectedLogicId(newLogic.id ?? null);
+  };
+
+  const handleRemoveLogic = (logicId: string | null) => {
+    if (!logicId) return;
+    setDraftLogic((prev) => prev.filter((entry) => entry.id !== logicId));
+    setSelectedLogicId((prev) => (prev === logicId ? null : prev));
   };
 
   const getCoordFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -634,6 +705,11 @@ export default function GameLogicBuilderModal({
                   <div className={styles.iconCoords}>
                     Tile {target.x + 1}, {target.y + 1}
                   </div>
+                  {(logicCountByIconId.get(target.id) ?? 0) > 1 ? (
+                    <div className={styles.iconCount}>
+                      {logicCountByIconId.get(target.id)} triggers
+                    </div>
+                  ) : null}
                 </div>
               </button>
             ))
@@ -642,9 +718,11 @@ export default function GameLogicBuilderModal({
             <div className={styles.orphanedSection}>
               <div className={styles.columnTitle}>Missing Icons</div>
               {orphanedLogic.map((entry) => (
-                <div key={entry.iconId} className={styles.orphanedItem}>
-                  <span>Missing icon {entry.iconId}</span>
-                  <button type="button" onClick={() => handleRemoveLogic(entry.iconId)}>
+                <div key={entry.id ?? entry.iconId} className={styles.orphanedItem}>
+                  <span>
+                    Missing icon {entry.iconId} ({entry.triggerType})
+                  </span>
+                  <button type="button" onClick={() => handleRemoveLogic(entry.id ?? null)}>
                     Remove
                   </button>
                 </div>
@@ -759,7 +837,12 @@ export default function GameLogicBuilderModal({
           {!selectedIconId ? (
             <div className={styles.emptyState}>Select a map icon to configure its logic.</div>
           ) : !selectedLogic ? (
-            <div className={styles.emptyState}>Logic is not initialized for this icon.</div>
+            <div className={styles.emptyState}>
+              <div>No triggers yet for this icon.</div>
+              <button type="button" className={styles.secondaryButton} onClick={handleAddTrigger}>
+                Add Trigger
+              </button>
+            </div>
           ) : (
             <>
               <div className={styles.editorHeader}>
@@ -774,9 +857,31 @@ export default function GameLogicBuilderModal({
                 <button
                   type="button"
                   className={styles.secondaryButton}
-                  onClick={() => handleRemoveLogic(selectedLogic.iconId)}
+                  onClick={() => handleRemoveLogic(selectedLogic.id ?? null)}
                 >
-                  Remove Logic
+                  Remove Trigger
+                </button>
+              </div>
+
+              <div className={styles.triggerTabs}>
+                {logicEntriesForSelectedIcon.map((entry, index) => (
+                  <button
+                    key={entry.id ?? `${entry.iconId}-${index}`}
+                    type="button"
+                    className={`${styles.triggerTab} ${
+                      selectedLogic?.id === entry.id ? styles.triggerTabActive : ""
+                    }`}
+                    onClick={() => setSelectedLogicId(entry.id ?? null)}
+                  >
+                    {entry.triggerType}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={styles.triggerAdd}
+                  onClick={handleAddTrigger}
+                >
+                  + Add Trigger
                 </button>
               </div>
 
@@ -1055,6 +1160,31 @@ export default function GameLogicBuilderModal({
                                 >
                                   Clear
                                 </button>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {action.type === "revealRadius" ? (
+                            <div className={styles.revealTilesEditor}>
+                              <input
+                                type="number"
+                                min={1}
+                                className={styles.textInput}
+                                placeholder="Radius (tiles)"
+                                value={Number.isFinite(payload.radius) ? payload.radius : ""}
+                                onChange={(event) => {
+                                  const radiusRaw = Number.parseInt(event.target.value, 10);
+                                  const radius = Number.isFinite(radiusRaw) ? radiusRaw : "";
+                                  updateSelectedLogic((entry) => ({
+                                    ...entry,
+                                    actions: entry.actions.map((item, idx) =>
+                                      idx === index ? { ...item, payload: { radius } } : item,
+                                    ),
+                                  }));
+                                }}
+                              />
+                              <div className={styles.emptyHint}>
+                                Reveals tiles around this icon when the trigger fires.
                               </div>
                             </div>
                           ) : null}
