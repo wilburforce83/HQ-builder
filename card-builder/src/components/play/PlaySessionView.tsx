@@ -516,7 +516,8 @@ export default function PlaySessionView({
     return true;
   };
 
-  const getEnterTriggerTiles = (center: TileCoord) => {
+  const getEnterTriggerTiles = (center: TileCoord, extraOpenDoorIds: string[] = []) => {
+    const openDoorSet = new Set<string>([...openDoorIds, ...extraOpenDoorIds]);
     const tiles: TileCoord[] = [center];
     const directions = [
       { x: 1, y: 0 },
@@ -531,8 +532,8 @@ export default function PlaySessionView({
       if (wall) {
         const door = findDoorForEdge(center, next);
         if (!door) continue;
-        if (door.isSecret && !openDoorIds.includes(door.id)) continue;
-        if (!openDoorIds.includes(door.id)) continue;
+        if (door.isSecret && !openDoorSet.has(door.id)) continue;
+        if (!openDoorSet.has(door.id)) continue;
       }
       tiles.push(next);
     }
@@ -598,7 +599,12 @@ export default function PlaySessionView({
     return findFirstOpenTile();
   };
 
-  const getSearchRegion = (start: TileCoord, radius: number) => {
+  const getReachableRegion = (
+    start: TileCoord,
+    radius: number,
+    extraOpenDoorIds: string[] = [],
+  ) => {
+    const openDoorSet = new Set<string>([...openDoorIds, ...extraOpenDoorIds]);
     const queue: Array<{ coord: TileCoord; distance: number }> = [
       { coord: start, distance: 0 },
     ];
@@ -627,8 +633,8 @@ export default function PlaySessionView({
         if (wall) {
           const door = findDoorForEdge(coord, next);
           if (!door) continue;
-          if (door.isSecret && !openDoorIds.includes(door.id)) continue;
-          if (!openDoorIds.includes(door.id)) continue;
+          if (door.isSecret && !openDoorSet.has(door.id)) continue;
+          if (!openDoorSet.has(door.id)) continue;
         }
         visited.add(nextKey);
         result.push(next);
@@ -637,6 +643,9 @@ export default function PlaySessionView({
     }
     return result;
   };
+
+  const getSearchRegion = (start: TileCoord, radius: number) =>
+    getReachableRegion(start, radius);
 
   const findPath = (start: TileCoord, goal: TileCoord, maxSteps: number) => {
     const queue: Array<{ coord: TileCoord; distance: number }> = [
@@ -709,16 +718,19 @@ export default function PlaySessionView({
     if (path.length === 0) return;
     const trail = path;
     const destination = path[path.length - 1];
+    const openedDoorIds: string[] = [];
     doorsToOpen.forEach((doorId) => {
       if (!openDoorIds.includes(doorId)) {
+        openedDoorIds.push(doorId);
         engine.openDoor(doorId);
         engine.revealEntity(doorId);
         engine.applyLogicTrigger({ type: "onOpenDoor", entityIds: [doorId] });
         const doorItem = itemById.get(doorId);
         if (doorItem) {
-          const revealRegion = getVisibleRegionAt(
+          const revealRegion = getReachableRegion(
             { x: doorItem.x, y: doorItem.y },
-            { radius: 2, columns: 26, rows: 19 },
+            2,
+            openedDoorIds,
           );
           engine.revealTiles(revealRegion);
           engine.applyLogicTrigger({ type: "onReveal", tiles: revealRegion });
@@ -727,7 +739,10 @@ export default function PlaySessionView({
     });
     engine.moveEntity(entityId, destination, trail);
     if (heroById.has(entityId)) {
-      engine.handleEnterTile(destination, getEnterTriggerTiles(destination));
+      engine.handleEnterTile(
+        destination,
+        getEnterTriggerTiles(destination, openedDoorIds),
+      );
     }
     setSelectedTile(destination);
     setSelectedEntityId(entityId);
