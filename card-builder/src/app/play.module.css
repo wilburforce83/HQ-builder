@@ -182,8 +182,27 @@
   padding: 1rem;
   background: rgba(26, 22, 18, 0.98);
   border-right: 1px solid rgba(247, 241, 232, 0.15);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sessionSidebarMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   overflow: auto;
   min-height: 0;
+  padding-bottom: 0.5rem;
+  flex: 1 1 auto;
+}
+
+.sessionLogPanel {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: rgba(26, 22, 18, 0.98);
+  max-height: 35%;
+  overflow: auto;
 }
 
 .sessionMain {
@@ -207,46 +226,35 @@
   border-top: 1px solid rgba(247, 241, 232, 0.2);
 }
 
-.sessionButtons {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.sessionPrimaryButtons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
 }
 
-.sessionButtons button {
-  background: rgba(247, 241, 232, 0.9);
+.sessionPrimaryButtons button {
+  background: linear-gradient(135deg, rgba(247, 241, 232, 0.95), rgba(217, 196, 158, 0.9));
   color: #2b2b2b;
-  border: none;
-  border-radius: 8px;
-  padding: 0.7rem 1.1rem;
-  min-height: 44px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border: 1px solid rgba(246, 231, 206, 0.6);
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  min-height: 54px;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--hq-font-display);
+  letter-spacing: 0.03em;
   cursor: pointer;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.sessionButtons button:hover {
-  background: #e6d5b6;
-}
-
-.sessionControls button {
-  background: rgba(247, 241, 232, 0.9);
-  color: #2b2b2b;
-  border: none;
-  border-radius: 8px;
-  padding: 0.55rem 1rem;
-  min-height: 40px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sessionControls button:hover {
-  background: #e6d5b6;
+.sessionPrimaryButtons button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.32);
 }
 
 .sessionControls button:disabled,
-.sessionButtons button:disabled {
+.sessionPrimaryButtons button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

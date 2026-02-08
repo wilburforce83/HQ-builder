@@ -8,7 +8,6 @@ import PlayMap from "@/components/play/PlayMap";
 import { usePlaySessionEngine } from "@/hooks/usePlaySessionEngine";
 import {
   findEntitiesInRegion,
-  getVisibleRegionAt,
   getItemTiles,
   tileKey,
   type QuestItem,
@@ -164,7 +163,6 @@ export default function PlaySessionView({
   const [selectedHeroCardId, setSelectedHeroCardId] = useState<string | null>(null);
   const [selectedHeroIconId, setSelectedHeroIconId] = useState<string>("");
   const [heroIconByCardId, setHeroIconByCardId] = useState<Record<string, string>>({});
-  const [moveRange, setMoveRange] = useState(8);
   const [sessionPhase, setSessionPhase] = useState<"setup" | "active">("setup");
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [resumeHasHeroes, setResumeHasHeroes] = useState(false);
@@ -340,18 +338,6 @@ export default function PlaySessionView({
   const entityPositions = engine.state.entityPositions;
   const heroTokens = engine.state.heroTokens;
   const movementTrail = engine.state.movementTrail;
-
-  const handleRevealArea = () => {
-    if (!selectedTile) return;
-    const region = getVisibleRegionAt(selectedTile, { radius: 2 });
-    engine.revealTiles(region);
-    if (iconLogic.length > 0) {
-      engine.applyLogicTrigger({ type: "onReveal", tiles: region });
-    } else {
-      const entities = findEntitiesInRegion(items, region);
-      entities.forEach((entityId) => engine.revealEntity(entityId));
-    }
-  };
 
   const handleSearch = () => {
     if (!selectedTile) return;
@@ -710,9 +696,7 @@ export default function PlaySessionView({
     if (!isEntityMovable(entityId)) return;
     const start = getEntityPosition(entityId);
     if (!start) return;
-    const maxSteps = moveRange > 0 ? moveRange : 0;
-    const pathResult =
-      maxSteps > 0 ? findPath(start, target, maxSteps) : findPath(start, target, 99);
+    const pathResult = findPath(start, target, 99);
     if (!pathResult) return;
     const { path, doorsToOpen } = pathResult;
     if (path.length === 0) return;
@@ -866,7 +850,55 @@ export default function PlaySessionView({
       />
       <div className={styles.sessionBody}>
         <div className={styles.sessionSidebar}>
-          <div className={styles.sessionPanel}>
+          <div className={styles.sessionSidebarMain}>
+            <div className={styles.sessionPanel}>
+              <div className={styles.sessionCardsTitle}>Narrative</div>
+              {narrativeNotes.length === 0 ? (
+                <div className={styles.sessionCardsEmpty}>No notes revealed yet.</div>
+              ) : (
+                <ul className={styles.sessionCardsList}>
+                  {narrativeNotes.map((note) => (
+                    <li key={note.id}>
+                      <div className={styles.sessionCardName}>Note {note.number}</div>
+                      <div className={styles.sessionCardMeta}>{note.text}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.sessionPanel}>
+              <div className={styles.sessionCardsTitle}>Objectives</div>
+              {objectives.length === 0 ? (
+                <div className={styles.sessionCardsEmpty}>No objectives yet.</div>
+              ) : (
+                <ul className={styles.sessionCardsList}>
+                  {objectives.map((objectiveId) => (
+                    <li key={objectiveId}>
+                      <div className={styles.sessionCardName}>{objectiveId}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.sessionPanel}>
+              <div className={styles.sessionCardsTitle}>Heroes</div>
+              {heroTokens.length === 0 ? (
+                <div className={styles.sessionCardsEmpty}>No heroes added yet.</div>
+              ) : (
+                <ul className={styles.sessionCardsList}>
+                  {heroTokens.map((hero) => (
+                    <li key={hero.id}>
+                      <div className={styles.sessionCardName}>{hero.name}</div>
+                      <div className={styles.sessionCardMeta}>
+                        Tile {hero.x + 1}, {hero.y + 1}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <div className={`${styles.sessionPanel} ${styles.sessionLogPanel}`}>
             <div className={styles.sessionCardsTitle}>Revealed Cards</div>
             {engine.state.revealedCards.length === 0 ? (
               <div className={styles.sessionCardsEmpty}>Nothing revealed yet.</div>
@@ -878,52 +910,6 @@ export default function PlaySessionView({
                     {card.subtitle ? (
                       <div className={styles.sessionCardMeta}>{card.subtitle}</div>
                     ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className={styles.sessionPanel}>
-            <div className={styles.sessionCardsTitle}>Narrative</div>
-            {narrativeNotes.length === 0 ? (
-              <div className={styles.sessionCardsEmpty}>No notes revealed yet.</div>
-            ) : (
-              <ul className={styles.sessionCardsList}>
-                {narrativeNotes.map((note) => (
-                  <li key={note.id}>
-                    <div className={styles.sessionCardName}>Note {note.number}</div>
-                    <div className={styles.sessionCardMeta}>{note.text}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className={styles.sessionPanel}>
-            <div className={styles.sessionCardsTitle}>Objectives</div>
-            {objectives.length === 0 ? (
-              <div className={styles.sessionCardsEmpty}>No objectives yet.</div>
-            ) : (
-              <ul className={styles.sessionCardsList}>
-                {objectives.map((objectiveId) => (
-                  <li key={objectiveId}>
-                    <div className={styles.sessionCardName}>{objectiveId}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className={styles.sessionPanel}>
-            <div className={styles.sessionCardsTitle}>Heroes</div>
-            {heroTokens.length === 0 ? (
-              <div className={styles.sessionCardsEmpty}>No heroes added yet.</div>
-            ) : (
-              <ul className={styles.sessionCardsList}>
-                {heroTokens.map((hero) => (
-                  <li key={hero.id}>
-                    <div className={styles.sessionCardName}>{hero.name}</div>
-                    <div className={styles.sessionCardMeta}>
-                      Tile {hero.x + 1}, {hero.y + 1}
-                    </div>
                   </li>
                 ))}
               </ul>
@@ -953,15 +939,10 @@ export default function PlaySessionView({
             />
           </div>
           <div className={styles.sessionControls}>
-            <div className={styles.sessionButtons}>
+            <div className={styles.sessionPrimaryButtons}>
               <button type="button" onClick={handleSearch} disabled={controlsDisabled}>
                 Search
               </button>
-              <button type="button" onClick={handleRevealArea} disabled={controlsDisabled}>
-                Reveal Area
-              </button>
-            </div>
-            <div className={styles.sessionControlRow}>
               <button
                 type="button"
                 onClick={() => {
@@ -971,20 +952,6 @@ export default function PlaySessionView({
               >
                 End Turn
               </button>
-              <label className={styles.sessionControlLabel}>
-                Move Range
-                <input
-                  type="number"
-                  min={0}
-                  className={styles.sessionInput}
-                  value={moveRange}
-                  onChange={(event) => {
-                    const value = Number.parseInt(event.target.value, 10);
-                    setMoveRange(Number.isFinite(value) ? value : 0);
-                  }}
-                  disabled={controlsDisabled}
-                />
-              </label>
             </div>
             {selectedEntityId ? (
               <div className={styles.sessionHint}>
