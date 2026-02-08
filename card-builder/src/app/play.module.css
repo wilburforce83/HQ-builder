@@ -385,6 +385,79 @@
   background: #e6d5b6;
 }
 
+/* Reveal modals */
+
+.sessionRevealModal {
+  width: min(900px, 100% - 2rem);
+  height: min(85vh, 760px);
+  background: rgba(20, 16, 13, 0.98);
+  color: #f6e7ce;
+  border: 1px solid rgba(246, 231, 206, 0.2);
+}
+
+.sessionRevealModal :global(.modal-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.sessionRevealModal :global(.modal-footer) {
+  margin-top: 0;
+  border-top: 1px solid rgba(246, 231, 206, 0.2);
+  padding: 0.75rem 1rem;
+  background: rgba(17, 13, 10, 0.9);
+}
+
+.sessionRevealBody {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.sessionRevealCard {
+  width: min(520px, 100%);
+  aspect-ratio: 5 / 7;
+  margin: 0 auto;
+}
+
+.sessionRevealNote {
+  max-width: 520px;
+  background: rgba(247, 241, 232, 0.08);
+  border: 1px solid rgba(247, 241, 232, 0.2);
+  border-radius: 14px;
+  padding: 1.5rem;
+  text-align: left;
+}
+
+.sessionRevealTitle {
+  font-family: var(--hq-font-display);
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.sessionRevealText {
+  font-size: 1rem;
+  color: rgba(246, 231, 206, 0.85);
+  line-height: 1.5;
+}
+
+.sessionRevealFooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sessionRevealFooter button {
+  background: rgba(247, 241, 232, 0.95);
+  color: #2b2b2b;
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Hero selection modal */
 
 .heroModal {

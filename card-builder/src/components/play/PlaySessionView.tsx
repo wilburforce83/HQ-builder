@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import CardPreview from "@/components/CardPreview";
 import HeroSelectionModal from "@/components/play/HeroSelectionModal";
 import PlayMap from "@/components/play/PlayMap";
+import ModalShell from "@/components/ModalShell";
 import { usePlaySessionEngine } from "@/hooks/usePlaySessionEngine";
 import {
   findEntitiesInRegion,
@@ -14,8 +16,10 @@ import {
   type TileCoord,
 } from "@/lib/play-session-engine";
 import { formatIconLabel } from "@/lib/icon-assets";
-import { listCards } from "@/lib/cards-db";
+import { getCard, listCards } from "@/lib/cards-db";
+import { cardRecordToCardData } from "@/lib/card-record-mapper";
 import boardData from "@/data/boardData";
+import { cardTemplatesById } from "@/data/card-templates";
 import type { CardRecord } from "@/types/cards-db";
 import type { IconLogic, QuestNote } from "@/types/quest";
 import styles from "@/app/play.module.css";
@@ -81,6 +85,10 @@ type DoorInfo = {
   offsetY: number;
   isSecret: boolean;
 };
+
+type RevealModalItem =
+  | { type: "card"; id: string }
+  | { type: "note"; id: string };
 
 const SEARCH_RADIUS = 6;
 
@@ -167,6 +175,12 @@ export default function PlaySessionView({
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [resumeHasHeroes, setResumeHasHeroes] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
+  const [revealQueue, setRevealQueue] = useState<RevealModalItem[]>([]);
+  const [modalCard, setModalCard] = useState<CardRecord | null>(null);
+  const [isModalCardLoading, setIsModalCardLoading] = useState(false);
+  const revealInitRef = useRef(false);
+  const prevCardIdsRef = useRef<Set<string>>(new Set());
+  const prevNoteIdsRef = useRef<Set<string>>(new Set());
   const maxHeroes = 5;
 
   useEffect(() => {
@@ -236,6 +250,9 @@ export default function PlaySessionView({
 
   const controlsDisabled = sessionPhase !== "active";
   const heroModalOpen = resumeChecked && !showResumePrompt && sessionPhase === "setup";
+  const activeReveal = revealQueue[0] ?? null;
+  const revealModalOpen =
+    Boolean(activeReveal) && sessionPhase === "active" && !heroModalOpen && !showResumePrompt;
 
   const handleContinueSession = () => {
     setShowResumePrompt(false);
@@ -254,11 +271,19 @@ export default function PlaySessionView({
   useEffect(() => {
     if (typeof window === "undefined") return;
     setResumeChecked(false);
+    setRevealQueue([]);
+    setModalCard(null);
+    setIsModalCardLoading(false);
+    let baselineCardIds = new Set<string>();
+    let baselineNoteIds = new Set<string>();
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) {
       setSessionPhase("setup");
       setShowResumePrompt(false);
       setResumeChecked(true);
+      prevCardIdsRef.current = baselineCardIds;
+      prevNoteIdsRef.current = baselineNoteIds;
+      revealInitRef.current = true;
       return;
     }
     try {
@@ -285,6 +310,23 @@ export default function PlaySessionView({
         (parsed.openDoors?.length ?? 0) > 0 ||
         (parsed.flags ? Object.keys(parsed.flags).length > 0 : false) ||
         (parsed.entityPositions ? Object.keys(parsed.entityPositions).length > 0 : false);
+      baselineNoteIds = new Set(
+        Array.isArray(parsed.narratives)
+          ? parsed.narratives.filter((id): id is string => typeof id === "string")
+          : [],
+      );
+      baselineCardIds = new Set(
+        Array.isArray(parsed.revealedCards)
+          ? parsed.revealedCards
+              .filter(
+                (card): card is { id: string; entityId?: string } =>
+                  Boolean(card) &&
+                  typeof (card as { id?: unknown }).id === "string" &&
+                  !(card as { entityId?: unknown }).entityId,
+              )
+              .map((card) => card.id)
+          : [],
+      );
       if (hasProgress) {
         setResumeHasHeroes((parsed.heroTokens?.length ?? 0) > 0);
         setShowResumePrompt(true);
@@ -296,8 +338,62 @@ export default function PlaySessionView({
       setSessionPhase("setup");
       setShowResumePrompt(false);
     }
+    prevCardIdsRef.current = baselineCardIds;
+    prevNoteIdsRef.current = baselineNoteIds;
+    revealInitRef.current = true;
     setResumeChecked(true);
   }, [storageKey]);
+
+  useEffect(() => {
+    const visibleCardIds = engine.state.revealedCards
+      .filter((card) => !card.entityId)
+      .map((card) => card.id);
+    const currentCardIds = new Set(visibleCardIds);
+    const currentNoteIds = new Set(engine.state.narratives);
+
+    if (!revealInitRef.current) {
+      prevCardIdsRef.current = currentCardIds;
+      prevNoteIdsRef.current = currentNoteIds;
+      revealInitRef.current = true;
+      return;
+    }
+
+    const newNotes = engine.state.narratives.filter(
+      (id) => !prevNoteIdsRef.current.has(id),
+    );
+    const newCards = engine.state.revealedCards.filter(
+      (card) => !card.entityId && !prevCardIdsRef.current.has(card.id),
+    );
+
+    if (newNotes.length || newCards.length) {
+      setRevealQueue((prev) => {
+        const existing = new Set(prev.map((item) => `${item.type}:${item.id}`));
+        const next = [...prev];
+        newNotes.forEach((id) => {
+          const key = `note:${id}`;
+          if (existing.has(key)) return;
+          existing.add(key);
+          next.push({ type: "note", id });
+        });
+        newCards.forEach((card) => {
+          const key = `card:${card.id}`;
+          if (existing.has(key)) return;
+          existing.add(key);
+          next.push({ type: "card", id: card.id });
+        });
+        return next;
+      });
+    }
+
+    prevCardIdsRef.current = new Set([
+      ...Array.from(prevCardIdsRef.current),
+      ...newCards.map((card) => card.id),
+    ]);
+    prevNoteIdsRef.current = new Set([
+      ...Array.from(prevNoteIdsRef.current),
+      ...newNotes,
+    ]);
+  }, [engine.state.narratives, engine.state.revealedCards]);
 
   useEffect(() => {
     if (!heroCards.length) {
@@ -798,6 +894,46 @@ export default function PlaySessionView({
   }, [engine.state.narratives, notes]);
 
   const objectives = engine.state.objectives;
+  const activeNote = useMemo(() => {
+    if (!activeReveal || activeReveal.type !== "note") return null;
+    return notes.find((note) => note.id === activeReveal.id) ?? null;
+  }, [activeReveal, notes]);
+  useEffect(() => {
+    let isActive = true;
+    if (!activeReveal || activeReveal.type !== "card") {
+      setModalCard(null);
+      setIsModalCardLoading(false);
+      return;
+    }
+    const cached = cards.find((card) => card.id === activeReveal.id) ?? null;
+    if (cached) {
+      setModalCard(cached);
+      setIsModalCardLoading(false);
+      return;
+    }
+    setIsModalCardLoading(true);
+    getCard(activeReveal.id)
+      .then((card) => {
+        if (!isActive) return;
+        setModalCard(card);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setModalCard(null);
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setIsModalCardLoading(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [activeReveal, cards]);
+  const activeCard = useMemo(() => {
+    if (!activeReveal || activeReveal.type !== "card") return null;
+    return modalCard ?? cards.find((card) => card.id === activeReveal.id) ?? null;
+  }, [activeReveal, cards, modalCard]);
+  const activeCardTemplate = activeCard ? cardTemplatesById[activeCard.templateId] : null;
 
   return (
     <div
@@ -833,6 +969,52 @@ export default function PlaySessionView({
             </div>
           </div>
         </div>
+      ) : null}
+      {revealModalOpen && activeReveal ? (
+        <ModalShell
+          isOpen
+          onClose={() => {
+            setRevealQueue((prev) => prev.slice(1));
+          }}
+          title={activeReveal.type === "card" ? "Card Revealed" : "Note Revealed"}
+          contentClassName={styles.sessionRevealModal}
+          footer={
+            <div className={styles.sessionRevealFooter}>
+              <button
+                type="button"
+                onClick={() => setRevealQueue((prev) => prev.slice(1))}
+              >
+                Continue
+              </button>
+            </div>
+          }
+        >
+          <div className={styles.sessionRevealBody}>
+            {activeReveal.type === "note" ? (
+              activeNote ? (
+                <div className={styles.sessionRevealNote}>
+                  <div className={styles.sessionRevealTitle}>Note {activeNote.number}</div>
+                  <div className={styles.sessionRevealText}>{activeNote.text}</div>
+                </div>
+              ) : (
+                <div className={styles.sessionRevealText}>Note not found.</div>
+              )
+            ) : activeCard && activeCardTemplate ? (
+              <div className={styles.sessionRevealCard}>
+                <CardPreview
+                  templateId={activeCard.templateId}
+                  templateName={activeCardTemplate.name}
+                  backgroundSrc={activeCardTemplate.background}
+                  cardData={cardRecordToCardData(activeCard)}
+                />
+              </div>
+            ) : isModalCardLoading ? (
+              <div className={styles.sessionRevealText}>Loading card...</div>
+            ) : (
+              <div className={styles.sessionRevealText}>Card not found.</div>
+            )}
+          </div>
+        </ModalShell>
       ) : null}
       <HeroSelectionModal
         isOpen={heroModalOpen}
